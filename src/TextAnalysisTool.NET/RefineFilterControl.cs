@@ -31,6 +31,11 @@ internal sealed class RefineFilterControl : Panel
 		m_textBox.Focus();
 	}
 
+	public void ClearRefine()
+	{
+		m_textBox.Clear();
+	}
+
 	public RefineFilterControl()
 	{
 		SuspendLayout();
@@ -108,6 +113,6 @@ internal sealed class RefineFilterControl : Panel
 
 	private void ClearButton_Click(object sender, EventArgs e)
 	{
-		m_textBox.Clear();
+		ClearRefine();
 	}
 }
