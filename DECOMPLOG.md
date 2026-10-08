@@ -1,5 +1,7 @@
 # DECOMPLOG
 
+> English | [中文版](DECOMPLOG.zh-CN.md)
+
 The journal of this decompilation. **Anything that isn't written here is lost at the next context
 compaction.** Log paths, addresses, function names, types, file formats, what failed and why, and the next
 step.

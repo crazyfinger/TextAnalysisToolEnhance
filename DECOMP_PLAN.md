@@ -1,5 +1,7 @@
 # Decompilation plan
 
+> English | [中文版](DECOMP_PLAN.zh-CN.md)
+
 ## Target
 - Binary: `data/TextAnalysisTool.NET.exe` (217,088 bytes)
 - Version / edition: `TextAnalysisTool.NET, Version=1.0.9456.32322` (2025-11-21), the user's **new** replacement build
