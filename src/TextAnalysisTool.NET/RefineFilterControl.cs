@@ -24,6 +24,13 @@ internal sealed class RefineFilterControl : Panel
 
 	public bool UseRegex => m_regexCheckBox.Checked;
 
+	public bool RefineTextBoxFocused => m_textBox.Focused;
+
+	public void FocusRefineTextBox()
+	{
+		m_textBox.Focus();
+	}
+
 	public RefineFilterControl()
 	{
 		SuspendLayout();

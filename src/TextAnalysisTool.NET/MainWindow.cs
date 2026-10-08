@@ -48,6 +48,10 @@ internal sealed class MainWindow : Form
 
 	private readonly FullyEnabledMenuItem m_menuEditGoTo;
 
+	private readonly FullyEnabledMenuItem m_menuEditFocusRefine;
+
+	private Control m_lastFocusedBeforeRefine;
+
 	private readonly FullyEnabledMenuItem m_menuEditPreferences;
 
 	private readonly FullyEnabledMenuItem m_menuEdit;
@@ -217,9 +221,10 @@ internal sealed class MainWindow : Form
 		m_menuEditFindPrevious = new FullyEnabledMenuItem("Find P&revious", null, EditFindPrevious_Click, Keys.F2);
 		m_menuEditFindNext = new FullyEnabledMenuItem("Find &Next", null, EditFindNext_Click, Keys.F3);
 		m_menuEditGoTo = new FullyEnabledMenuItem("&Go To...", null, EditGoTo_Click, Keys.G | Keys.Control);
+		m_menuEditFocusRefine = new FullyEnabledMenuItem("Focus Re&fine Box", null, EditFocusRefine_Click, Keys.K | Keys.Control);
 		m_menuEditPreferences = new FullyEnabledMenuItem("Pr&eferences...", null, EditPreferences_Click);
 		m_menuEdit = new FullyEnabledMenuItem("&Edit");
-		m_menuEdit.DropDownItems.AddRange(new ToolStripItem[18]
+		m_menuEdit.DropDownItems.AddRange(new ToolStripItem[19]
 		{
 			m_menuEditCopy,
 			m_menuEditCopyLegacy,
@@ -237,6 +242,7 @@ internal sealed class MainWindow : Form
 			m_menuEditFindNext,
 			new ToolStripSeparator(),
 			m_menuEditGoTo,
+			m_menuEditFocusRefine,
 			new ToolStripSeparator(),
 			m_menuEditPreferences
 		});
@@ -702,6 +708,28 @@ internal sealed class MainWindow : Form
 		m_lineCollectionDisplay.ListBox.ShowGoToDialog();
 	}
 
+	private void EditFocusRefine_Click(object sender, EventArgs e)
+	{
+		if (m_refineFilterControl.RefineTextBoxFocused)
+		{
+			Control previous = m_lastFocusedBeforeRefine;
+			m_lastFocusedBeforeRefine = null;
+			if (previous != null && !previous.IsDisposed && previous.Visible)
+			{
+				previous.Focus();
+			}
+			else
+			{
+				m_lineCollectionDisplay.ListBox.Focus();
+			}
+		}
+		else
+		{
+			m_lastFocusedBeforeRefine = ActiveControl;
+			m_refineFilterControl.FocusRefineTextBox();
+		}
+	}
+
 	private void EditPreferences_Click(object sender, EventArgs e)
 	{
 		using OptionsDialog optionsDialog = new OptionsDialog(Settings.ToOptions(), m_preferencesImportFilterIndex, m_preferencesExportFilterIndex, UpdateSettingsChanged);
@@ -994,6 +1022,7 @@ internal sealed class MainWindow : Form
 			m_menuEditFindPrevious.Enabled = enabled;
 			m_menuEditFindNext.Enabled = enabled;
 			m_menuEditGoTo.Enabled = linesVisible;
+			m_menuEditFocusRefine.Checked = m_refineFilterControl.RefineTextBoxFocused;
 			return;
 		}
 		if (fullyEnabledMenuItem == m_menuView)

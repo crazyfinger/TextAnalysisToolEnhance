@@ -290,6 +290,16 @@ internal sealed class LineCollection
 		}
 	}
 
+	public LineCollection(LineCollection originalLines)
+	{
+		m_lineChunks = originalLines.m_lineChunks;
+		m_linesInChunks = originalLines.m_linesInChunks;
+		m_linesInCollection = originalLines.m_linesInCollection;
+		m_members = new BitArray(originalLines.m_members);
+		m_maxDisplayWidth = originalLines.m_maxDisplayWidth;
+		m_lineNumbersInCollection = null;
+	}
+
 	public bool IsLineNumberValid(int number)
 	{
 		if (1 <= number)
