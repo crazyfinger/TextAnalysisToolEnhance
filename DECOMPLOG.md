@@ -47,3 +47,13 @@ step.
   FilterLines AND, RefineFilterControl, MainWindow layout/dock) to this new source. The class is now
   `CTextAnalysisTool`; verify the same seams exist (FilterCollection ctor takes CTextAnalysisTool, etc.).
 - Re-run the reflection harness, rebuild, commit.
+
+### 2026-10-08 — feature: Refine filter (re-applied to v1.0.9456.32322)
+- Re-applied the same changes on branch `feature/refine-filter`. All seams were identical; only the main
+  controller class is now `CTextAnalysisTool` (so the handler calls
+  `m_textAnalysisTool.FilterCollection.SetRefineFilterText(...)`, unchanged).
+- New version also changed the status bar from `StatusBar` to `StatusStrip` — the `Controls.AddRange` and
+  `ShowOnlyFilteredLinesChanged` edits used `m_statusStrip`, no other impact on the refine feature.
+- Build: 0 warnings/errors, output at repo root.
+- Verified: reflection harness all PASS against the new build (refine 'beta'->2/6; alpha∩two->1 'alpha two').
+  App launches with the refine strip, no crash.

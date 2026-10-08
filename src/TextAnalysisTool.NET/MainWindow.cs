@@ -110,6 +110,8 @@ internal sealed class MainWindow : Form
 
 	private readonly Splitter m_splitter;
 
+	private readonly RefineFilterControl m_refineFilterControl;
+
 	private readonly FilterCollectionDisplay m_filterCollectionDisplay;
 
 	private readonly StatusStrip m_statusStrip;
@@ -355,6 +357,8 @@ internal sealed class MainWindow : Form
 		m_lineCollectionDisplay.ListBox.DoubleClick += m_lineCollectionDisplay_DoubleClick;
 		m_splitter = new Splitter();
 		m_splitter.SplitterMoving += OnSplitterMoving;
+		m_refineFilterControl = new RefineFilterControl();
+		m_refineFilterControl.RefineTextChanged += m_refineFilterControl_RefineTextChanged;
 		m_filterCollectionDisplay = filterCollectionDisplay;
 		m_filterCollectionDisplay.Dock = DockStyle.Fill;
 		m_filterCollectionDisplay.TabIndex = 1;
@@ -407,7 +411,7 @@ internal sealed class MainWindow : Form
 		m_statusZoom.ToolTipText = "Zoom Level";
 		m_statusZoom.Text = m_lineCollectionDisplay.ListBox.ZoomPercent.ToString("0 \\%");
 		m_statusStrip.Items.Add(m_statusZoom);
-		base.Controls.AddRange(new Control[4] { m_filterCollectionDisplay, m_splitter, m_lineCollectionDisplay, m_statusStrip });
+		base.Controls.AddRange(new Control[5] { m_filterCollectionDisplay, m_refineFilterControl, m_splitter, m_lineCollectionDisplay, m_statusStrip });
 		base.Controls.Add(menuStrip);
 		base.MainMenuStrip = menuStrip;
 		SetFilterListLocation(Settings.FilterListLocation);
@@ -508,6 +512,11 @@ internal sealed class MainWindow : Form
 			m_statusStrip.Items.Remove(m_statusFiltering);
 		}
 		SetStatusSelection();
+	}
+
+	private void m_refineFilterControl_RefineTextChanged(object sender, EventArgs e)
+	{
+		m_textAnalysisTool.FilterCollection.SetRefineFilterText(m_refineFilterControl.RefineText);
 	}
 
 	private void m_lineCollectionDisplay_ZoomLevelChanged(object sender, LineCollectionDisplayListBox.ZoomLevelEventArgs e)
@@ -731,6 +740,7 @@ internal sealed class MainWindow : Form
 		{
 		case DockStyle.Left:
 			m_splitter.Dock = DockStyle.Right;
+			m_refineFilterControl.Dock = DockStyle.Right;
 			m_lineCollectionDisplay.Dock = DockStyle.Right;
 			m_lineCollectionDisplay.Left = base.ClientRectangle.Width - LineCollectionDisplayWidth;
 			m_lineCollectionDisplay.Width = LineCollectionDisplayWidth;
@@ -738,6 +748,7 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Right:
 			m_splitter.Dock = DockStyle.Left;
+			m_refineFilterControl.Dock = DockStyle.Left;
 			m_lineCollectionDisplay.Dock = DockStyle.Left;
 			m_lineCollectionDisplay.Left = 0;
 			m_lineCollectionDisplay.Width = LineCollectionDisplayWidth;
@@ -745,6 +756,7 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Top:
 			m_splitter.Dock = DockStyle.Bottom;
+			m_refineFilterControl.Dock = DockStyle.Bottom;
 			m_lineCollectionDisplay.Dock = DockStyle.Bottom;
 			m_lineCollectionDisplay.Top = DisplayAreaHeight - LineCollectionDisplayHeight;
 			m_lineCollectionDisplay.Height = LineCollectionDisplayHeight;
@@ -752,6 +764,7 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Bottom:
 			m_splitter.Dock = DockStyle.Top;
+			m_refineFilterControl.Dock = DockStyle.Top;
 			m_lineCollectionDisplay.Dock = DockStyle.Top;
 			m_lineCollectionDisplay.Top = 0;
 			m_lineCollectionDisplay.Height = LineCollectionDisplayHeight;

@@ -16,6 +16,8 @@ internal sealed class FilterCollection
 
 	private bool m_isDirty;
 
+	private MatchesTextFilter m_refineFilter;
+
 	public IList Filters => ArrayList.ReadOnly(m_filters);
 
 	public bool IsDirty
@@ -35,6 +37,8 @@ internal sealed class FilterCollection
 
 	public LineCollection FilteredLines => m_filteredLines;
 
+	public string RefineFilterText => m_refineFilter?.Text;
+
 	public event EventHandler<DirtyStatusChangedEventArgs> DirtyStatusChanged;
 
 	public FilterCollection(CTextAnalysisTool textAnalysisTool)
@@ -47,6 +51,19 @@ internal sealed class FilterCollection
 	public void ClearDirtyFlag()
 	{
 		IsDirty = false;
+	}
+
+	public void SetRefineFilterText(string text)
+	{
+		if (string.IsNullOrEmpty(text))
+		{
+			m_refineFilter = null;
+		}
+		else
+		{
+			m_refineFilter = new MatchesTextFilter(enabled: true, excluding: false, System.Drawing.Color.Empty, System.Drawing.Color.Empty, text, caseSensitive: false, usesRegularExpression: false, "Refine");
+		}
+		m_textAnalysisTool.FiltersChanged(updateFilterDisplay: true);
 	}
 
 	private void FiltersChanged(bool destructive)
@@ -175,5 +192,12 @@ internal sealed class FilterCollection
 		}
 		workItemRunner.RunWorkItemsToCompletion(arrayList);
 		m_filteredLines = new LineCollection(sourceLines, m_filters);
+		if (m_refineFilter != null)
+		{
+			m_refineFilter.InitializeAccepts();
+			LineCollection refineLines = new LineCollection(sourceLines, m_refineFilter);
+			m_refineFilter.UninitializeAccepts();
+			m_filteredLines.IntersectWith(refineLines);
+		}
 	}
 }
