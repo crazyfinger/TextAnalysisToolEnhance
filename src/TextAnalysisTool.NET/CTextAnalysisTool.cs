@@ -587,6 +587,34 @@ internal sealed class CTextAnalysisTool : IDisposable
 		FilterAndDisplayLines(updateFilterDisplay);
 	}
 
+	public void OnRefineComputed(int generation, LineCollection refinedLines)
+	{
+		if (m_mainWindow == null || m_mainWindow.IsDisposed)
+		{
+			return;
+		}
+		if (m_mainWindow.InvokeRequired)
+		{
+			m_mainWindow.BeginInvoke((MethodInvoker)delegate
+			{
+				ApplyRefineResult(generation, refinedLines);
+			});
+			return;
+		}
+		ApplyRefineResult(generation, refinedLines);
+	}
+
+	private void ApplyRefineResult(int generation, LineCollection refinedLines)
+	{
+		if (!m_filterCollection.IsCurrentRefineGeneration(generation))
+		{
+			return;
+		}
+		m_filterCollection.SetFilteredLines(refinedLines);
+		m_lineCollectionDisplay.ListBox.DisplayLines(m_lineCollection, refinedLines, showOnlyFilteredLinesChanging: false);
+		m_mainWindow.SetStatusFilteredLines();
+	}
+
 	private void FilterAndDisplayLines(bool updateFilterDisplay)
 	{
 		Cursor cursor = m_mainWindow.Cursor;

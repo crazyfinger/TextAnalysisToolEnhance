@@ -18,6 +18,10 @@ internal sealed class FilterCollection
 
 	private MatchesTextFilter m_refineFilter;
 
+	private int m_refineGeneration;
+
+	private readonly object m_refineLock = new object();
+
 	public IList Filters => ArrayList.ReadOnly(m_filters);
 
 	public bool IsDirty
@@ -55,6 +59,10 @@ internal sealed class FilterCollection
 
 	public void SetRefineFilterText(string text, bool caseSensitive, bool usesRegularExpression)
 	{
+		lock (m_refineLock)
+		{
+			m_refineGeneration++;
+		}
 		if (string.IsNullOrEmpty(text))
 		{
 			m_refineFilter = null;
@@ -64,6 +72,19 @@ internal sealed class FilterCollection
 			m_refineFilter = new MatchesTextFilter(enabled: true, excluding: false, System.Drawing.Color.Empty, System.Drawing.Color.Empty, text, caseSensitive, usesRegularExpression, "Refine");
 		}
 		m_textAnalysisTool.FiltersChanged(updateFilterDisplay: true);
+	}
+
+	public void SetFilteredLines(LineCollection lines)
+	{
+		m_filteredLines = lines;
+	}
+
+	public bool IsCurrentRefineGeneration(int generation)
+	{
+		lock (m_refineLock)
+		{
+			return generation == m_refineGeneration;
+		}
 	}
 
 	private void FiltersChanged(bool destructive)
@@ -194,7 +215,32 @@ internal sealed class FilterCollection
 		m_filteredLines = new LineCollection(sourceLines, m_filters);
 		if (m_refineFilter != null)
 		{
-			m_filteredLines.RemoveLinesNotAcceptedBy(m_refineFilter);
+			BeginAsyncRefine(m_filteredLines, m_refineFilter);
 		}
+	}
+
+	private void BeginAsyncRefine(LineCollection baseLines, Filter refineFilter)
+	{
+		LineCollection clone = new LineCollection(baseLines);
+		int generation;
+		lock (m_refineLock)
+		{
+			generation = ++m_refineGeneration;
+		}
+		ThreadPool.QueueUserWorkItem(delegate
+		{
+			try
+			{
+				clone.RemoveLinesNotAcceptedBy(refineFilter);
+			}
+			catch (Exception)
+			{
+				return;
+			}
+			if (IsCurrentRefineGeneration(generation))
+			{
+				m_textAnalysisTool.OnRefineComputed(generation, clone);
+			}
+		});
 	}
 }

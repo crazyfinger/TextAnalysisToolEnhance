@@ -81,3 +81,17 @@ step.
   the user pauses, not per key. Checkbox toggles still apply immediately.
 - Verified by reflection harness (incl. `RemoveLinesNotAcceptedBy`: 'alpha' 2 -> 1 'alpha two'). App
   launches, no crash.
+
+### 2026-10-09 — refine filter on a background thread + focus shortcut
+- **Background refine**: `FilterCollection.FilterLines()` still computes the base union on the UI thread
+  (fast bit ops), but the refine accept pass now runs on a `ThreadPool` worker. It operates on a deep copy
+  (`new LineCollection(LineCollection)` copy ctor, deep-copied BitArray) so the UI-side base is never
+  mutated. When done, `CTextAnalysisTool.OnRefineComputed` marshals back to the UI thread via
+  `m_mainWindow.BeginInvoke`, checks a generation counter (stale results from older keystrokes are dropped),
+  then swaps in the refined collection and refreshes the display + "Fil" count. `SetRefineFilterText` bumps
+  the generation too, so clearing/typing invalidates any in-flight pass.
+- **Shortcut**: new Edit menu item "Focus Refine Box" (Ctrl+K). It toggles focus onto the refine TextBox and
+  back: first press saves the previously focused control and focuses the box; second press restores focus to
+  it (falls back to the line list if gone). Menu item shows a check when the box is focused.
+- Verified: reflection harness all PASS incl. copy-ctor independence (clone refined to 1, original base still
+  2). App launches, no crash. (Async/threading and focus toggle are exercised at runtime by the user.)
