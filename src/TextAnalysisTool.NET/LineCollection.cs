@@ -430,4 +430,34 @@ internal sealed class LineCollection
 		m_maxDisplayWidth = Line.DisplayWidthFromLineLength(m_linesInChunks, num);
 		m_lineNumbersInCollection = null;
 	}
+
+	public void RemoveLinesNotAcceptedBy(Filter filter)
+	{
+		if (m_linesInCollection == 0)
+		{
+			return;
+		}
+		filter.InitializeAccepts();
+		int[] lineNumbers = LineNumbersInCollection;
+		for (int i = 0; i < lineNumbers.Length; i++)
+		{
+			if (!filter.Accepts(this, lineNumbers[i]))
+			{
+				m_members[lineNumbers[i]] = false;
+			}
+		}
+		filter.UninitializeAccepts();
+		m_linesInCollection = 0;
+		int num = 0;
+		for (int i = 1; i <= m_linesInChunks; i++)
+		{
+			if (m_members[i])
+			{
+				m_linesInCollection++;
+				num = Math.Max(num, m_lineChunks[i >> 14][i & 0x3FFF].Length);
+			}
+		}
+		m_maxDisplayWidth = Line.DisplayWidthFromLineLength(m_linesInChunks, num);
+		m_lineNumbersInCollection = null;
+	}
 }
