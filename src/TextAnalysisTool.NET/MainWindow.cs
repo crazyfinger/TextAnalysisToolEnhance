@@ -50,6 +50,8 @@ internal sealed class MainWindow : Form
 
 	private readonly FullyEnabledMenuItem m_menuEditFocusRefine;
 
+	private readonly FullyEnabledMenuItem m_menuEditClearRefine;
+
 	private Control m_lastFocusedBeforeRefine;
 
 	private readonly FullyEnabledMenuItem m_menuEditPreferences;
@@ -179,7 +181,7 @@ internal sealed class MainWindow : Form
 		FullyEnabledMenuItem fullyEnabledMenuItem = new FullyEnabledMenuItem("&Open...", null, FileOpen_Click, Keys.O | Keys.Control);
 		m_menuFileReload = new FullyEnabledMenuItem("&Reload", null, FileReload_Click, Keys.F5);
 		m_menuFileSaveCurrentLines = new FullyEnabledMenuItem("&Save Current Lines...", null, FileSaveCurrentLines_Click, Keys.S | Keys.Control);
-		FullyEnabledMenuItem fullyEnabledMenuItem2 = new FullyEnabledMenuItem("&Load Filters...", null, FileLoadFilters_Click);
+		FullyEnabledMenuItem fullyEnabledMenuItem2 = new FullyEnabledMenuItem("&Load Filters...", null, FileLoadFilters_Click, Keys.L | Keys.Control);
 		m_menuFileSaveFilters = new FullyEnabledMenuItem("Sa&ve Filters", null, FileSaveFilters_Click);
 		FullyEnabledMenuItem fullyEnabledMenuItem3 = new FullyEnabledMenuItem("S&ave Filters As...", null, FileSaveFiltersAs_Click);
 		FullyEnabledMenuItem fullyEnabledMenuItem4 = new FullyEnabledMenuItem("A&ppend to Existing Filters...", null, FileAppendFilters_Click);
@@ -221,10 +223,11 @@ internal sealed class MainWindow : Form
 		m_menuEditFindPrevious = new FullyEnabledMenuItem("Find P&revious", null, EditFindPrevious_Click, Keys.F2);
 		m_menuEditFindNext = new FullyEnabledMenuItem("Find &Next", null, EditFindNext_Click, Keys.F3);
 		m_menuEditGoTo = new FullyEnabledMenuItem("&Go To...", null, EditGoTo_Click, Keys.G | Keys.Control);
-		m_menuEditFocusRefine = new FullyEnabledMenuItem("Focus Re&fine Box", null, EditFocusRefine_Click, Keys.K | Keys.Control);
+		m_menuEditFocusRefine = new FullyEnabledMenuItem("Focus Re&fine Box", null, EditFocusRefine_Click, Keys.E | Keys.Control);
+		m_menuEditClearRefine = new FullyEnabledMenuItem("Clea&r Refine Filter", null, EditClearRefine_Click, Keys.K | Keys.Control);
 		m_menuEditPreferences = new FullyEnabledMenuItem("Pr&eferences...", null, EditPreferences_Click);
 		m_menuEdit = new FullyEnabledMenuItem("&Edit");
-		m_menuEdit.DropDownItems.AddRange(new ToolStripItem[19]
+		m_menuEdit.DropDownItems.AddRange(new ToolStripItem[20]
 		{
 			m_menuEditCopy,
 			m_menuEditCopyLegacy,
@@ -243,6 +246,7 @@ internal sealed class MainWindow : Form
 			new ToolStripSeparator(),
 			m_menuEditGoTo,
 			m_menuEditFocusRefine,
+			m_menuEditClearRefine,
 			new ToolStripSeparator(),
 			m_menuEditPreferences
 		});
@@ -728,6 +732,11 @@ internal sealed class MainWindow : Form
 			m_lastFocusedBeforeRefine = ActiveControl;
 			m_refineFilterControl.FocusRefineTextBox();
 		}
+	}
+
+	private void EditClearRefine_Click(object sender, EventArgs e)
+	{
+		m_refineFilterControl.ClearRefine();
 	}
 
 	private void EditPreferences_Click(object sender, EventArgs e)

@@ -95,3 +95,9 @@ step.
   it (falls back to the line list if gone). Menu item shows a check when the box is focused.
 - Verified: reflection harness all PASS incl. copy-ctor independence (clone refined to 1, original base still
   2). App launches, no crash. (Async/threading and focus toggle are exercised at runtime by the user.)
+
+### 2026-10-09 — shortcut rework
+- "Focus Refine Box" shortcut changed Ctrl+K -> **Ctrl+E**.
+- New Edit > "Clear Refine Filter" on **Ctrl+K**: calls the refine box's Clear (clears the refine filter).
+  Added `RefineFilterControl.ClearRefine()`; the Clear button uses it too.
+- File > "Load Filters..." now has **Ctrl+L**.
