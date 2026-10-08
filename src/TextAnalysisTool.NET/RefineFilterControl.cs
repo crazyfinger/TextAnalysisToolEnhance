@@ -14,6 +14,8 @@ internal sealed class RefineFilterControl : Panel
 
 	private readonly CheckBox m_regexCheckBox;
 
+	private readonly Timer m_debounceTimer;
+
 	public event EventHandler CriteriaChanged;
 
 	public string RefineText => m_textBox.Text;
@@ -27,6 +29,11 @@ internal sealed class RefineFilterControl : Panel
 		SuspendLayout();
 		Height = 30;
 		Padding = new Padding(3, 2, 3, 2);
+		m_debounceTimer = new Timer
+		{
+			Interval = 250
+		};
+		m_debounceTimer.Tick += m_debounceTimer_Tick;
 		m_textBox = new TextBox
 		{
 			Dock = DockStyle.Fill,
@@ -76,11 +83,19 @@ internal sealed class RefineFilterControl : Panel
 
 	private void m_textBox_TextChanged(object sender, EventArgs e)
 	{
+		m_debounceTimer.Stop();
+		m_debounceTimer.Start();
+	}
+
+	private void m_debounceTimer_Tick(object sender, EventArgs e)
+	{
+		m_debounceTimer.Stop();
 		CriteriaChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	private void m_criteria_Changed(object sender, EventArgs e)
 	{
+		m_debounceTimer.Stop();
 		CriteriaChanged?.Invoke(this, EventArgs.Empty);
 	}
 

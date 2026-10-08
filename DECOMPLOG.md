@@ -68,3 +68,16 @@ step.
   the `MatchesTextFilter`; `MainWindow` handler forwards them.
 - Verified by reflection harness (case-sensitive 'Alpha'->0, ignore-case 'Alpha'->2, regex '\btwo\b'->2).
   App launches, no crash.
+
+### 2026-10-09 — refine filter performance
+- Lag cause: every keystroke re-ran a full-source accept pass (`new LineCollection(sourceLines, refine)`)
+  plus the union scan; and it re-filtered immediately per key. Display is virtualized, so it was not the
+  rendering.
+- Fix 1: `LineCollection.RemoveLinesNotAcceptedBy(Filter)` — the refine now inspects ONLY the lines already
+  in the filter result (via `LineNumbersInCollection`), not the whole file. Big win when the base filters
+  already narrow a large file. `FilterCollection.FilterLines()` uses it instead of building a separate
+  full-source refine collection + `IntersectWith`.
+- Fix 2: `RefineFilterControl` debounces typing with a 250 ms `Timer` — `CriteriaChanged` fires only after
+  the user pauses, not per key. Checkbox toggles still apply immediately.
+- Verified by reflection harness (incl. `RemoveLinesNotAcceptedBy`: 'alpha' 2 -> 1 'alpha two'). App
+  launches, no crash.

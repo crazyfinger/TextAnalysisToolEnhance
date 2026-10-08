@@ -194,10 +194,7 @@ internal sealed class FilterCollection
 		m_filteredLines = new LineCollection(sourceLines, m_filters);
 		if (m_refineFilter != null)
 		{
-			m_refineFilter.InitializeAccepts();
-			LineCollection refineLines = new LineCollection(sourceLines, m_refineFilter);
-			m_refineFilter.UninitializeAccepts();
-			m_filteredLines.IntersectWith(refineLines);
+			m_filteredLines.RemoveLinesNotAcceptedBy(m_refineFilter);
 		}
 	}
 }
