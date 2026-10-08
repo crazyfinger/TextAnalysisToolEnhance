@@ -1,5 +1,7 @@
 # TextAnalysisTool-decomp: local reconstruction
 
+> English | [中文版](README.zh-CN.md)
+
 A private, local reconstruction of software I own, made with universal-decompiler. **Not for publication:**
 it contains code derived from the original and must never be pushed to a public remote (the pre-push hook
 refuses). The original binary stays in `data/`, which is not tracked.
