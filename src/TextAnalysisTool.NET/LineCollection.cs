@@ -150,7 +150,7 @@ internal sealed class LineCollection
 
 	private readonly int m_linesInChunks;
 
-	private readonly int m_linesInCollection;
+	private int m_linesInCollection;
 
 	private readonly BitArray m_members;
 
@@ -412,5 +412,22 @@ internal sealed class LineCollection
 			num = Math.Max(num, m_lineChunks[i >> 14][i & 0x3FFF].RefreshLength());
 		}
 		m_maxDisplayWidth = Line.DisplayWidthFromLineLength(m_linesInChunks, num);
+	}
+
+	public void IntersectWith(LineCollection other)
+	{
+		m_members.And(other.m_members);
+		m_linesInCollection = 0;
+		int num = 0;
+		for (int i = 1; i <= m_linesInChunks; i++)
+		{
+			if (m_members[i])
+			{
+				m_linesInCollection++;
+				num = Math.Max(num, m_lineChunks[i >> 14][i & 0x3FFF].Length);
+			}
+		}
+		m_maxDisplayWidth = Line.DisplayWidthFromLineLength(m_linesInChunks, num);
+		m_lineNumbersInCollection = null;
 	}
 }
