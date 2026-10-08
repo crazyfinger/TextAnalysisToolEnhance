@@ -358,7 +358,7 @@ internal sealed class MainWindow : Form
 		m_splitter = new Splitter();
 		m_splitter.SplitterMoving += OnSplitterMoving;
 		m_refineFilterControl = new RefineFilterControl();
-		m_refineFilterControl.RefineTextChanged += m_refineFilterControl_RefineTextChanged;
+		m_refineFilterControl.CriteriaChanged += m_refineFilterControl_RefineTextChanged;
 		m_filterCollectionDisplay = filterCollectionDisplay;
 		m_filterCollectionDisplay.Dock = DockStyle.Fill;
 		m_filterCollectionDisplay.TabIndex = 1;
@@ -516,7 +516,7 @@ internal sealed class MainWindow : Form
 
 	private void m_refineFilterControl_RefineTextChanged(object sender, EventArgs e)
 	{
-		m_textAnalysisTool.FilterCollection.SetRefineFilterText(m_refineFilterControl.RefineText);
+		m_textAnalysisTool.FilterCollection.SetRefineFilterText(m_refineFilterControl.RefineText, m_refineFilterControl.CaseSensitive, m_refineFilterControl.UseRegex);
 	}
 
 	private void m_lineCollectionDisplay_ZoomLevelChanged(object sender, LineCollectionDisplayListBox.ZoomLevelEventArgs e)

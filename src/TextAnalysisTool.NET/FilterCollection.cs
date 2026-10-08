@@ -53,7 +53,7 @@ internal sealed class FilterCollection
 		IsDirty = false;
 	}
 
-	public void SetRefineFilterText(string text)
+	public void SetRefineFilterText(string text, bool caseSensitive, bool usesRegularExpression)
 	{
 		if (string.IsNullOrEmpty(text))
 		{
@@ -61,7 +61,7 @@ internal sealed class FilterCollection
 		}
 		else
 		{
-			m_refineFilter = new MatchesTextFilter(enabled: true, excluding: false, System.Drawing.Color.Empty, System.Drawing.Color.Empty, text, caseSensitive: false, usesRegularExpression: false, "Refine");
+			m_refineFilter = new MatchesTextFilter(enabled: true, excluding: false, System.Drawing.Color.Empty, System.Drawing.Color.Empty, text, caseSensitive, usesRegularExpression, "Refine");
 		}
 		m_textAnalysisTool.FiltersChanged(updateFilterDisplay: true);
 	}

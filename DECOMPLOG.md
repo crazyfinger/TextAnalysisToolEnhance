@@ -57,3 +57,14 @@ step.
 - Build: 0 warnings/errors, output at repo root.
 - Verified: reflection harness all PASS against the new build (refine 'beta'->2/6; alpha∩two->1 'alpha two').
   App launches with the refine strip, no crash.
+
+### 2026-10-08 — refine filter UI polish
+- Fixed label "Refine:" and "Clear" button text truncated at the two ends of the strip (they were fixed-width
+  and clipped at higher DPI). Switched label/checkboxes/button to AutoSize and added panel Padding.
+- Added two checkboxes: "Match case" (case-sensitive) and "Regex".
+- `RefineFilterControl` now exposes `CaseSensitive`, `UseRegex`; event renamed `RefineTextChanged` ->
+  `CriteriaChanged` (raised on text change or either checkbox toggle).
+- `FilterCollection.SetRefineFilterText(text, caseSensitive, usesRegularExpression)` passes the flags into
+  the `MatchesTextFilter`; `MainWindow` handler forwards them.
+- Verified by reflection harness (case-sensitive 'Alpha'->0, ignore-case 'Alpha'->2, regex '\btwo\b'->2).
+  App launches, no crash.
