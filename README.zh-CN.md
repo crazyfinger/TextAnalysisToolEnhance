@@ -11,9 +11,16 @@
 ## 构建
 
 需要 .NET SDK（9+ 即可）与 `ilspycmd`（仅重新反编译时需要）：
-- `dotnet tool install --global ilspycmd --version 8.2.0.7535`（最新包已损坏，需用该版本）
-- `dotnet build src/TextAnalysisTool.NET.csproj -c Release`
-- 产物：仓库根目录下的 `TextAnalysisTool.NET.exe`（已被 gitignore）
+
+1. 若未安装 .NET SDK，先从 <https://dotnet.microsoft.com/download> 安装。
+2. （仅重新反编译时需要）安装 ilspycmd 8.2.0.7535——最新包已损坏：
+   `dotnet tool install --global ilspycmd --version 8.2.0.7535`
+3. 在仓库根目录构建：
+   `dotnet build src/TextAnalysisTool.NET.csproj -c Release`
+   - `-c Release` = 发布版构建（省略即为调试版）。
+4. 产物：仓库根目录下的 `TextAnalysisTool.NET.exe`（已被 gitignore，不会提交）。
+
+改完代码后，只需重新执行第 3 步即可。csproj 中的 `<OutputPath>` 已配置为把 exe（及 `.pdb`/`.exe.config`）直接输出到仓库根目录。
 
 ## 从零重新反编译
 - `ilspycmd -p -o build/decompiled data/TextAnalysisTool.NET.exe`
