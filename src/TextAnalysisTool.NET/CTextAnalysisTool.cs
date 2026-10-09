@@ -548,6 +548,25 @@ internal sealed class CTextAnalysisTool : IDisposable
 		}
 	}
 
+	public void AddFilterFromPattern(string filterPattern, bool caseSensitive)
+	{
+		if (string.IsNullOrEmpty(filterPattern))
+		{
+			return;
+		}
+		Filter filter;
+		try
+		{
+			filter = new MatchesTextFilter(enabled: true, excluding: false, Color.Empty, Color.Empty, filterPattern, caseSensitive, usesRegularExpression: true);
+		}
+		catch (ArgumentException)
+		{
+			ShowMessageBox("The plug-in returned an invalid filter pattern.", MessageBoxIcon.Exclamation);
+			return;
+		}
+		m_filterCollection.Add(filter);
+	}
+
 	public void ShowEditFilterDialog(Filter editFilter)
 	{
 		using FilterDialog filterDialog = new FilterDialog(null, editFilter, GetCustomColors);

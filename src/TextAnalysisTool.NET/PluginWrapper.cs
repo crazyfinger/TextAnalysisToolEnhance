@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
@@ -23,6 +24,8 @@ internal sealed class PluginWrapper : IComparable, ITextAnalysisToolPlugin
 
 	private readonly MethodInfo m_GetSettingsDialog;
 
+	private readonly MethodInfo m_GetLineContextMenuItems;
+
 	private bool m_enabled;
 
 	public string Name => m_type.Name;
@@ -41,6 +44,7 @@ internal sealed class PluginWrapper : IComparable, ITextAnalysisToolPlugin
 		m_GetReaderForFile = m_type.GetMethod("GetReaderForFile", new Type[1] { typeof(string) });
 		Utility.ThrowExceptionIf(m_pluginInstance == null || null == m_GetFileTypeDescription || null == m_GetFileTypePattern || null == m_IsFileTypeSupported || null == m_GetReaderForFile, null);
 		m_GetSettingsDialog = m_type.GetMethod("GetSettingsDialog", Type.EmptyTypes);
+		m_GetLineContextMenuItems = m_type.GetMethod("GetLineContextMenuItems", new Type[1] { typeof(string) });
 		m_enabled = true;
 	}
 
@@ -73,6 +77,15 @@ internal sealed class PluginWrapper : IComparable, ITextAnalysisToolPlugin
 		return (Form)CallPluginSafely(typeof(Form), m_GetSettingsDialog, null, null);
 	}
 
+	public IList<PluginContextMenuItem> GetLineContextMenuItems(string lineText)
+	{
+		if (m_GetLineContextMenuItems == null)
+		{
+			return null;
+		}
+		return (IList<PluginContextMenuItem>)CallPluginSafely(typeof(IList<PluginContextMenuItem>), m_GetLineContextMenuItems, new object[1] { lineText }, null);
+	}
+
 	private object CallPluginSafely(Type t, MethodInfo mi, object[] oa, object failedReturn)
 	{
 		object obj = failedReturn;
@@ -88,7 +101,7 @@ internal sealed class PluginWrapper : IComparable, ITextAnalysisToolPlugin
 				{
 					throw ex.GetBaseException();
 				}
-				Utility.ThrowExceptionIf(!t.IsAssignableFrom(obj.GetType()), null);
+				Utility.ThrowExceptionIf(obj != null && !t.IsAssignableFrom(obj.GetType()), null);
 			}
 			catch (FileLoadException)
 			{

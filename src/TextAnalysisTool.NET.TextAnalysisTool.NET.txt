@@ -248,6 +248,15 @@ them.  From then on, installed plug-ins are seamlessly integrated with the rest
 of the application.  To see a list of active plug-ins, use the Help | Installed 
 plug-ins menu item.
 
+Beyond reading files, a plug-in may also contribute actions to the line display's 
+context menu.  When you right-click a line, each installed plug-in is given the 
+line's text and may offer menu items (for example, "Filter by PID 1234" or 
+"Filter by tag AudioSystem" for Android logcat lines).  Choosing one adds a 
+filter that keeps the matching lines.  Plug-ins that do not recognize a line 
+simply contribute nothing to the menu.  (The "Toggle Marker" markers now appear 
+in a submenu to make room for such plug-in actions.)  See the project README for 
+details on developing and building a plug-in.
+
 
 ------------------------------------------------
 -- Section: Differences from TextAnalysisTool --

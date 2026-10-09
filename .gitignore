@@ -19,6 +19,8 @@ pyghidra_mcp_projects/
 # .NET build output
 src/bin/
 src/obj/
+src/TATPlugin_AndroidLog/obj/
+src/TATPlugin_AndroidLog/bin/
 *.pdb
 *.exe.config
 *.user

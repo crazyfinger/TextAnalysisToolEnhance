@@ -15,6 +15,7 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="TATPlugin_AndroidLog\**" />
   </ItemGroup>
   <PropertyGroup>
     <ApplicationIcon>app.ico</ApplicationIcon>

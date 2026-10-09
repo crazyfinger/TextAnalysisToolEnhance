@@ -39,6 +39,122 @@
 - 原版：`ud run --original`
 - 在相同窗口几何下两者渲染逐像素一致（已通过截图哈希验证）。
 
+## 插件：开发 / 编译 / 加载
+
+行列表的右键菜单可以通过插件扩展。任何放在 `TextAnalysisTool.NET.exe` 同目录、命名为 `TATPlugin_*.dll`
+的 DLL 都会在启动时被发现（见 Help | Installed plug-ins）。插件原本只用于读取文件；现在 SDK 还允许插件
+为当前右键的行提供"加入过滤器"的菜单项（例如安卓日志的 "Filter by TAG/PID"）。
+
+### 工作原理
+- 启动时程序扫描自身目录下的 `TATPlugin_*.dll`，反射其中的所有公共类型，把暴露了插件方法的类型包装成
+  插件（按**方法名**识别，不要求实现接口）。
+- 插件需提供 5 个文件读取方法，另有 2 个可选方法：`GetSettingsDialog()` 与
+  `GetLineContextMenuItems(string lineText)`。
+- 右键某一行时，程序会对每个插件调用 `GetLineContextMenuItems`（传入该行文本）。每个返回的
+  `PluginContextMenuItem` 会成为菜单顶层项；点击后根据 `FilterPattern` 生成一个正则过滤器并立即生效。
+  返回空列表的插件不会出现在菜单里——插件无法识别的行类型不会打扰你。
+
+### 公共 SDK 类型
+它们位于主程序程序集（命名空间 `TextAnalysisTool.NET.Plugin`）：
+
+```csharp
+public interface ITextAnalysisToolPlugin {
+    string GetFileTypeDescription();
+    string GetFileTypePattern();
+    bool IsFileTypeSupported(string fileName);
+    System.IO.TextReader GetReaderForFile(string fileName);
+    System.Windows.Forms.Form GetSettingsDialog();
+    System.Collections.Generic.IList<PluginContextMenuItem> GetLineContextMenuItems(string lineText);
+}
+
+public sealed class PluginContextMenuItem {
+    public string Text { get; }          // 菜单文字，如 "Filter by tag AudioSystem"
+    public string FilterPattern { get; } // 用于保留匹配行的正则
+    public bool CaseSensitive { get; }   // 正则过滤器是否区分大小写
+    public PluginContextMenuItem(string text, string filterPattern, bool caseSensitive = false);
+}
+```
+
+- `GetFileTypeDescription` / `GetFileTypePattern` / `IsFileTypeSupported` / `GetReaderForFile` 是原有的
+  文件读取契约；若插件只提供右键规则，返回 `""`/`false`/`null` 即可。
+- `GetSettingsDialog()` 可返回 `null` 表示"没有设置对话框"。
+- `GetLineContextMenuItems(lineText)` 可选；不实现则插件不贡献任何菜单项。
+
+### 最小示例
+```csharp
+using System.Collections.Generic;
+using System.IO;
+using System.Windows.Forms;
+using TextAnalysisTool.NET.Plugin;
+
+namespace MyPlugin;
+
+public sealed class MyPlugin : ITextAnalysisToolPlugin {
+    public string GetFileTypeDescription() => "";
+    public string GetFileTypePattern() => "";
+    public bool IsFileTypeSupported(string fileName) => false;
+    public TextReader GetReaderForFile(string fileName) => null;
+    public Form GetSettingsDialog() => null;
+
+    public IList<PluginContextMenuItem> GetLineContextMenuItems(string lineText) {
+        // 只识别你关心的行，否则返回空列表
+        if (lineText == null || !lineText.Contains("KEYWORD")) {
+            return new List<PluginContextMenuItem>();
+        }
+        return new List<PluginContextMenuItem> {
+            new PluginContextMenuItem("Filter by KEYWORD", "KEYWORD", caseSensitive: false)
+        };
+    }
+}
+```
+
+一个真实示例——安卓 logcat 的 tag/PID 过滤——位于 `src/TATPlugin_AndroidLog/`。
+
+### 编译
+插件是一个普通的 `net48` 类库，引用主程序 exe（以获得 SDK 类型）。
+
+1. 先构建主程序，确保 exe 存在：
+   `dotnet build src/TextAnalysisTool.NET.csproj`
+2. 再构建插件：
+   `dotnet build src/TATPlugin_AndroidLog/`
+
+csproj 模板（参见 `src/TATPlugin_AndroidLog/TATPlugin_AndroidLog.csproj`）：
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>TATPlugin_MyPlugin</AssemblyName>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>11.0</LangVersion>
+    <OutputPath>$(MSBuildProjectDirectory)\..\..\</OutputPath> <!-- 仓库根目录，即 exe 旁 -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="TextAnalysisTool.NET">
+      <HintPath>..\..\TextAnalysisTool.NET.exe</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
+```
+
+> **重要：** 主程序是 SDK 风格工程，默认会递归编译 `src/**/*.cs`。当你在 `src/` 下新增插件目录时，必须在
+> `src/TextAnalysisTool.NET.csproj` 里用 `<Compile Remove="TATPlugin_AndroidLog\**" />` 把它排除（示例已
+> 添加），否则主程序会把插件源码（及其 `obj/` 生成文件）一起编译，导致重复特性错误（`CS0579`）。
+
+### 加载
+把编译产物 `TATPlugin_*.dll` 复制到 `TextAnalysisTool.NET.exe` 同目录（上面的模板已直接输出到那里）。
+重启程序，在 Help | Installed plug-ins 中确认。右键一行插件能识别的行，即可在右键菜单顶部看到它的
+动作；标记切换项现在收在 "Toggle Marker" 子菜单里。
+
+### 说明
+- 插件按方法名识别，因此即使不引用/实现接口也能被加载，但引用 SDK 类型更安全。
+- 若插件方法抛异常，该插件会在本次会话被禁用（会弹框说明）；返回 `null` 是被允许的，不会导致禁用。
+
 ## 已知缺口
 - 目前仅验证了默认启动画面。深层功能仍需要行为层面的对比检查。
 - 精炼过滤功能位于 `feature/refine-filter` 分支：在过滤结果之上再叠加一个"Refine"输入框做 AND 过滤（已应用到此新源码）。

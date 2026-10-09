@@ -7,6 +7,7 @@ using System.Media;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using TextAnalysisTool.NET.Plugin;
 using ToolBox;
 
 namespace TextAnalysisTool.NET;
@@ -99,6 +100,8 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 	private int m_maxWidthOfTextInCharacters;
 
 	private float m_characterWidthInPixels;
+
+	private ToolStripMenuItem m_markerMenu;
 
 	protected override CreateParams CreateParams
 	{
@@ -247,12 +250,13 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		m_stringFormat = new StringFormat(StringFormat.GenericDefault);
 		m_stringFormat.FormatFlags |= StringFormatFlags.NoFontFallback;
 		m_currentlySelectedLineNumber = -1;
-		ContextMenuStrip = new ContextMenuStrip();
-		ContextMenuStrip.Items.Add(new ToolStripLabel("Toggle Marker"));
+		m_markerMenu = new ToolStripMenuItem("Toggle &Marker");
 		for (int i = 0; i < 8; i++)
 		{
-			ContextMenuStrip.Items.Add(MarkerMenu(i));
+			m_markerMenu.DropDownItems.Add(MarkerMenu(i));
 		}
+		ContextMenuStrip = new ContextMenuStrip();
+		ContextMenuStrip.Items.Add(m_markerMenu);
 		ContextMenuStrip.Opening += ContextMenuStrip_Opening;
 		base.MouseUp += ContextMenuStripPositioning;
 		ConfigureToolTipHelpers();
@@ -274,12 +278,60 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 	private void ContextMenuStrip_Opening(object sender, CancelEventArgs e)
 	{
 		bool enabled = CallSendMessage(400u, 0, 0) > 0;
-		foreach (object item in ((ContextMenuStrip)sender).Items)
+		ToolStripDropDown menu = (ToolStripDropDown)sender;
+		menu.Items.Clear();
+		AddPluginMenuItems(menu);
+		menu.Items.Add(m_markerMenu);
+		m_markerMenu.Enabled = enabled;
+		foreach (ToolStripItem item in m_markerMenu.DropDownItems)
 		{
 			if (item is FullyEnabledMenuItem fullyEnabledMenuItem)
 			{
 				fullyEnabledMenuItem.Enabled = enabled;
 			}
+		}
+	}
+
+	private void AddPluginMenuItems(ToolStripDropDown menu)
+	{
+		if (m_textAnalysisTool == null)
+		{
+			return;
+		}
+		string lineText = GetSelectedLineText();
+		if (string.IsNullOrEmpty(lineText))
+		{
+			return;
+		}
+		bool addedAny = false;
+		foreach (object pluginObj in m_textAnalysisTool.Plugins)
+		{
+			if (pluginObj is not PluginWrapper plugin)
+			{
+				continue;
+			}
+			IList<PluginContextMenuItem> items = plugin.GetLineContextMenuItems(lineText);
+			if (items == null || items.Count == 0)
+			{
+				continue;
+			}
+			foreach (PluginContextMenuItem item in items)
+			{
+				if (item == null || string.IsNullOrEmpty(item.Text))
+				{
+					continue;
+				}
+				string pattern = item.FilterPattern;
+				bool caseSensitive = item.CaseSensitive;
+				ToolStripMenuItem menuItem = new ToolStripMenuItem(item.Text);
+				menuItem.Click += (s, e2) => m_textAnalysisTool.AddFilterFromPattern(pattern, caseSensitive);
+				menu.Items.Add(menuItem);
+				addedAny = true;
+			}
+		}
+		if (addedAny)
+		{
+			menu.Items.Add(new ToolStripSeparator());
 		}
 	}
 
