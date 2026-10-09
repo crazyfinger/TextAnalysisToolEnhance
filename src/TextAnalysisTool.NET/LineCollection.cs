@@ -346,6 +346,11 @@ internal sealed class LineCollection
 		return m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].MarkedByAny;
 	}
 
+	public void ReplaceLineText(int lineNumber, string newText)
+	{
+		m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].Initialize(newText);
+	}
+
 	public void LineToggleMark(int lineNumber, int marker)
 	{
 		bool markedByAny = m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].MarkedByAny;

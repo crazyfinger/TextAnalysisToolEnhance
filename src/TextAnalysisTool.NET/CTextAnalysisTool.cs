@@ -587,6 +587,14 @@ internal sealed class CTextAnalysisTool : IDisposable
 		FilterAndDisplayLines(updateFilterDisplay);
 	}
 
+	public void ReplaceLine(int lineNumber, string newText)
+	{
+		string singleLine = newText.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ');
+		m_lineCollection.ReplaceLineText(lineNumber, singleLine);
+		m_lineCollection.RefreshLinesLength();
+		LinesChanged();
+	}
+
 	public void OnRefineComputed(int generation, LineCollection refinedLines)
 	{
 		if (m_mainWindow == null || m_mainWindow.IsDisposed)

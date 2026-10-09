@@ -19,6 +19,11 @@ internal sealed class PasteTextConfirmationDialog : Form
 	public bool DoNotAskAgainChecked => !AskAgainCheckbox.Checked;
 
 	public PasteTextConfirmationDialog()
+		: this("Replace the current text with the contents of the clipboard?", "Confirm Paste", showAskAgainCheckbox: true)
+	{
+	}
+
+	public PasteTextConfirmationDialog(string message, string title = "Confirm", bool showAskAgainCheckbox = false)
 	{
 		OKButton = new Button();
 		cancelButton = new Button();
@@ -41,8 +46,9 @@ internal sealed class PasteTextConfirmationDialog : Form
 		MessageLabel.Location = new Point(15, 21);
 		MessageLabel.Size = new Size(714, 37);
 		MessageLabel.TabIndex = 2;
-		MessageLabel.Text = "Replace the current text with the contents of the clipboard?";
+		MessageLabel.Text = message;
 		MessageLabel.Font = new Font(MessageLabel.Font.FontFamily, MessageLabel.Font.Size + 2f);
+		AskAgainCheckbox.Visible = showAskAgainCheckbox;
 		AskAgainCheckbox.AutoSize = true;
 		AskAgainCheckbox.Location = new Point(20, 75);
 		AskAgainCheckbox.Size = new Size(95, 20);
@@ -58,8 +64,8 @@ internal sealed class PasteTextConfirmationDialog : Form
 		base.Controls.Add(MessageLabel);
 		base.Controls.Add(cancelButton);
 		base.Controls.Add(OKButton);
-		base.Name = "Confirm Paste";
-		Text = "Confirm Paste";
+		base.Name = title;
+		Text = title;
 		base.FormBorderStyle = FormBorderStyle.FixedDialog;
 		base.MaximizeBox = false;
 		base.MinimizeBox = false;

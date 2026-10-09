@@ -530,7 +530,30 @@ internal sealed class MainWindow : Form
 
 	private void m_lineCollectionDisplay_DoubleClick(object sender, EventArgs e)
 	{
-		m_textAnalysisTool.ShowAddFilterDialog();
+		int lineNumber = m_lineCollectionDisplay.ListBox.GetSelectedLineNumber();
+		if (lineNumber < 0)
+		{
+			return;
+		}
+		string text = m_lineCollectionDisplay.ListBox.SourceLines.GetLineText(lineNumber);
+		using EditLineDialog editLineDialog = new EditLineDialog(text);
+		editLineDialog.ClientSize = new Size(Math.Max(editLineDialog.MinimumSize.Width, base.ClientSize.Width / 2), Math.Max(editLineDialog.MinimumSize.Height, base.ClientSize.Height / 2));
+		if (editLineDialog.ShowDialog(this) != DialogResult.OK)
+		{
+			return;
+		}
+		string newText = editLineDialog.EditedText;
+		if (newText == text)
+		{
+			return;
+		}
+		using (PasteTextConfirmationDialog confirmationDialog = new PasteTextConfirmationDialog("Replace this line with the edited text?", "Confirm Line Edit"))
+		{
+			if (confirmationDialog.ShowDialog(this) == DialogResult.OK)
+			{
+				m_textAnalysisTool.ReplaceLine(lineNumber, newText);
+			}
+		}
 	}
 
 	private void m_lineCollectionDisplay_ShowOnlyFilteredLinesChanged(object sender, LineCollectionDisplayListBox.ShowOnlyFilteredLinesEventArgs e)

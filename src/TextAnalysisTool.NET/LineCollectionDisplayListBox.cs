@@ -415,6 +415,16 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		return result;
 	}
 
+	public int GetSelectedLineNumber()
+	{
+		int selectedIndex = GetSelectedIndex();
+		if (-1 != selectedIndex)
+		{
+			return CurrentDisplayLines.LineNumbersInCollection[selectedIndex];
+		}
+		return -1;
+	}
+
 	public string GetSelectedLinesAsString(bool formatAsHtml)
 	{
 		StringBuilder stringBuilder = new StringBuilder();
