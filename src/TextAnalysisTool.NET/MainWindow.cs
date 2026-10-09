@@ -632,16 +632,43 @@ internal sealed class MainWindow : Form
 				num++;
 			}
 		}
+		stringBuilder.Append("Compressed Logs (*.zip;*.7z;*.gz)|*.zip;*.7z;*.gz|");
+		num++;
 		stringBuilder.Append("All Files (*)|*");
 		num++;
 		openFileDialog.Filter = stringBuilder.ToString();
 		openFileDialog.FilterIndex = Math.Min(m_fileOpenFilterIndex, num);
 		openFileDialog.InitialDirectory = Settings.LastFileDirectory;
+		openFileDialog.Multiselect = true;
 		if (DialogResult.OK == openFileDialog.ShowDialog(this))
 		{
 			m_fileOpenFilterIndex = openFileDialog.FilterIndex;
-			LoadFile(openFileDialog.FileName);
-			UpdateRecentFiles(openFileDialog.FileName);
+			string[] files = openFileDialog.FileNames;
+			if (files.Length == 1 && !ArchiveSupport.IsArchivePath(files[0]))
+			{
+				LoadFile(files[0]);
+				UpdateRecentFiles(files[0]);
+				return;
+			}
+			OpenOrMergeFiles(files);
+		}
+	}
+
+	private void OpenOrMergeFiles(string[] files)
+	{
+		using MergeDialog dialog = new MergeDialog(files);
+		if (dialog.ShowDialog(this) != DialogResult.OK)
+		{
+			return;
+		}
+		if (!string.IsNullOrEmpty(dialog.SingleSourcePath))
+		{
+			LoadFile(dialog.SingleSourcePath);
+		}
+		else if (!string.IsNullOrEmpty(dialog.MergedOutputPath))
+		{
+			LoadFile(dialog.MergedOutputPath);
+			UpdateRecentFiles(dialog.MergedOutputPath);
 		}
 	}
 
