@@ -144,30 +144,37 @@ internal sealed class RefineFilterControl : Panel
 		int fixedW = labelW + exclW + caseW + regexW + clearW;
 		int minTextW = MinTextBoxChars * TextRenderer.MeasureText("0", Font).Width;
 		int scrollbarHeight = SystemInformation.HorizontalScrollBarHeight;
-		int rowHeight = Math.Max(m_textBox.Height, m_caseSensitiveCheckBox.PreferredSize.Height);
+		int textBoxHeight = m_textBox.Height;
+		int labelH = m_label.PreferredSize.Height;
+		int exclH = m_excludingCheckBox.PreferredSize.Height;
+		int caseH = m_caseSensitiveCheckBox.PreferredSize.Height;
+		int regexH = m_regexCheckBox.PreferredSize.Height;
+		int clearH = m_clearButton.PreferredSize.Height;
 		int contentHeight;
 
 		m_twoLine = cw < fixedW + minTextW;
 
 		if (m_twoLine)
 		{
+			int row0Height = Math.Max(textBoxHeight, labelH);
 			int x = ContentPaddingX;
 			int y0 = ContentPaddingY;
-			m_label.SetBounds(x, y0, labelW, m_textBox.Height);
+			m_label.SetBounds(x, CenterY(y0, row0Height, labelH), labelW, labelH);
 			x += labelW;
 			int textW = Math.Max(minTextW, cw - labelW);
-			m_textBox.SetBounds(x, y0, textW, m_textBox.Height);
+			m_textBox.SetBounds(x, CenterY(y0, row0Height, textBoxHeight), textW, textBoxHeight);
 
-			int y1 = y0 + m_textBox.Height + RowGap;
+			int row1Height = Math.Max(Math.Max(exclH, caseH), Math.Max(regexH, clearH));
+			int y1 = y0 + row0Height + RowGap;
 			int x1 = ContentPaddingX;
-			x1 = PlaceRight(m_excludingCheckBox, x1, y1);
-			x1 = PlaceRight(m_caseSensitiveCheckBox, x1, y1);
-			x1 = PlaceRight(m_regexCheckBox, x1, y1);
-			PlaceRight(m_clearButton, x1, y1);
+			x1 = PlaceRight(m_excludingCheckBox, x1, CenterY(y1, row1Height, exclH));
+			x1 = PlaceRight(m_caseSensitiveCheckBox, x1, CenterY(y1, row1Height, caseH));
+			x1 = PlaceRight(m_regexCheckBox, x1, CenterY(y1, row1Height, regexH));
+			PlaceRight(m_clearButton, x1, CenterY(y1, row1Height, clearH));
 
 			int row0Width = labelW + textW + 2 * ContentPaddingX;
 			int row1Width = exclW + caseW + regexW + clearW + 3 * MaxGap + 2 * ContentPaddingX;
-			contentHeight = y1 + m_caseSensitiveCheckBox.PreferredSize.Height + ContentPaddingY;
+			contentHeight = y1 + row1Height + ContentPaddingY;
 			m_content.AutoScrollMinSize = new Size(Math.Max(cw, Math.Max(row0Width, row1Width)), 0);
 		}
 		else
@@ -178,16 +185,17 @@ internal sealed class RefineFilterControl : Panel
 				gap = Math.Max(0, (cw - fixedW - minTextW) / 5);
 			}
 			int textW = Math.Max(minTextW, cw - fixedW - gap * 5);
-			int y = ContentPaddingY + (rowHeight - m_textBox.Height) / 2;
+			int rowHeight = Math.Max(textBoxHeight, Math.Max(Math.Max(exclH, caseH), Math.Max(regexH, clearH)));
+			int y = CenterY(ContentPaddingY, rowHeight, textBoxHeight);
 			int x = ContentPaddingX;
-			PlaceRight(m_label, x, ContentPaddingY);
+			PlaceRight(m_label, x, CenterY(ContentPaddingY, rowHeight, labelH));
 			x += labelW + gap;
-			m_textBox.SetBounds(x, y, textW, m_textBox.Height);
+			m_textBox.SetBounds(x, y, textW, textBoxHeight);
 			x += textW + gap;
-			x = PlaceRight(m_excludingCheckBox, x, ContentPaddingY);
-			x = PlaceRight(m_caseSensitiveCheckBox, x, ContentPaddingY);
-			x = PlaceRight(m_regexCheckBox, x, ContentPaddingY);
-			PlaceRight(m_clearButton, x, ContentPaddingY);
+			x = PlaceRight(m_excludingCheckBox, x, CenterY(ContentPaddingY, rowHeight, exclH));
+			x = PlaceRight(m_caseSensitiveCheckBox, x, CenterY(ContentPaddingY, rowHeight, caseH));
+			x = PlaceRight(m_regexCheckBox, x, CenterY(ContentPaddingY, rowHeight, regexH));
+			PlaceRight(m_clearButton, x, CenterY(ContentPaddingY, rowHeight, clearH));
 
 			contentHeight = rowHeight + 2 * ContentPaddingY;
 			int contentWidth = labelW + textW + exclW + caseW + regexW + clearW + gap * 5 + 2 * ContentPaddingX;
@@ -200,6 +208,11 @@ internal sealed class RefineFilterControl : Panel
 			m_lastHeight = newHeight;
 			Height = newHeight;
 		}
+	}
+
+	private static int CenterY(int top, int rowHeight, int controlHeight)
+	{
+		return top + (rowHeight - controlHeight) / 2;
 	}
 
 	private int m_lastHeight = -1;

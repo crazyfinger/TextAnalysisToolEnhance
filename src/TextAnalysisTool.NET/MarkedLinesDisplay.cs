@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.Text;
 using System.Windows.Forms;
 
 namespace TextAnalysisTool.NET;
@@ -50,7 +51,7 @@ internal sealed class MarkedLinesDisplay : Panel
 		{
 			Dock = DockStyle.Fill,
 			IntegralHeight = false,
-			SelectionMode = SelectionMode.One,
+			SelectionMode = SelectionMode.MultiExtended,
 			DrawMode = DrawMode.OwnerDrawFixed,
 			ItemHeight = Font.Height + 6,
 			HorizontalScrollbar = true,
@@ -58,6 +59,16 @@ internal sealed class MarkedLinesDisplay : Panel
 		};
 		m_linesListBox.DrawItem += LinesListBox_DrawItem;
 		m_linesListBox.SelectedIndexChanged += LinesListBox_SelectedIndexChanged;
+		m_linesListBox.KeyDown += LinesListBox_KeyDown;
+
+		ContextMenuStrip contextMenu = new ContextMenuStrip();
+		FullyEnabledMenuItem copyMenuItem = new FullyEnabledMenuItem("&Copy", null, CopyMenuItem_Click, Keys.C | Keys.Control);
+		FullyEnabledMenuItem selectAllMenuItem = new FullyEnabledMenuItem("Select &All", null, SelectAllMenuItem_Click, Keys.A | Keys.Control);
+		contextMenu.Items.Add(copyMenuItem);
+		contextMenu.Items.Add(new ToolStripSeparator());
+		contextMenu.Items.Add(selectAllMenuItem);
+		contextMenu.Opening += (s, e) => copyMenuItem.Enabled = m_linesListBox.SelectedItems.Count > 0;
+		m_linesListBox.ContextMenuStrip = contextMenu;
 
 		base.Controls.Add(m_linesListBox);
 		base.Controls.Add(m_markerComboBox);
@@ -76,6 +87,62 @@ internal sealed class MarkedLinesDisplay : Panel
 		{
 			m_listBox.SelectLineNumber(markedLineItem.LineNumber);
 		}
+	}
+
+	private void LinesListBox_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.Control && !e.Alt && !e.Shift)
+		{
+			if (e.KeyCode == Keys.C)
+			{
+				CopySelectedLines();
+				e.Handled = true;
+				e.SuppressKeyPress = true;
+			}
+			else if (e.KeyCode == Keys.A)
+			{
+				m_linesListBox.BeginUpdate();
+				for (int i = 0; i < m_linesListBox.Items.Count; i++)
+				{
+					m_linesListBox.SetSelected(i, true);
+				}
+				m_linesListBox.EndUpdate();
+				e.Handled = true;
+				e.SuppressKeyPress = true;
+			}
+		}
+	}
+
+	private void CopyMenuItem_Click(object sender, EventArgs e)
+	{
+		CopySelectedLines();
+	}
+
+	private void SelectAllMenuItem_Click(object sender, EventArgs e)
+	{
+		m_linesListBox.BeginUpdate();
+		for (int i = 0; i < m_linesListBox.Items.Count; i++)
+		{
+			m_linesListBox.SetSelected(i, true);
+		}
+		m_linesListBox.EndUpdate();
+	}
+
+	private void CopySelectedLines()
+	{
+		if (m_linesListBox.SelectedItems.Count == 0)
+		{
+			return;
+		}
+		StringBuilder stringBuilder = new StringBuilder();
+		foreach (object item in m_linesListBox.SelectedItems)
+		{
+			if (item is MarkedLineItem markedLineItem)
+			{
+				stringBuilder.AppendLine(markedLineItem.LineNumber + ": " + markedLineItem.Text);
+			}
+		}
+		Clipboard.SetText(stringBuilder.ToString());
 	}
 
 	private void LinesListBox_DrawItem(object sender, DrawItemEventArgs e)
@@ -152,6 +219,8 @@ internal sealed class MarkedLinesDisplay : Panel
 internal sealed class MarkedLineItem
 {
 	public int LineNumber { get; }
+
+	public string Text => m_text;
 
 	private readonly string m_text;
 

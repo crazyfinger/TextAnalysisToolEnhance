@@ -373,6 +373,7 @@ internal sealed class MainWindow : Form
 		m_lineCollectionDisplay.ListBox.ShowOnlyFilteredLinesChanged += m_lineCollectionDisplay_ShowOnlyFilteredLinesChanged;
 		m_lineCollectionDisplay.ListBox.SelectedIndexChanged += m_lineCollectionDisplay_SelectedIndexChanged;
 		m_lineCollectionDisplay.ListBox.DoubleClick += m_lineCollectionDisplay_DoubleClick;
+		m_lineCollectionDisplay.ListBox.KeyDown += m_lineCollectionDisplay_KeyDown;
 		m_splitter = new Splitter();
 		m_splitter.SplitterMoving += OnSplitterMoving;
 		m_refineFilterControl = new RefineFilterControl();
@@ -553,6 +554,16 @@ internal sealed class MainWindow : Form
 			{
 				m_textAnalysisTool.ReplaceLine(lineNumber, newText);
 			}
+		}
+	}
+
+	private void m_lineCollectionDisplay_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.KeyCode == Keys.Enter && !e.Control && !e.Alt)
+		{
+			m_lineCollectionDisplay_DoubleClick(sender, EventArgs.Empty);
+			e.Handled = true;
+			e.SuppressKeyPress = true;
 		}
 	}
 
@@ -1051,8 +1062,9 @@ internal sealed class MainWindow : Form
 	public void UpdateUIFonts(float fontSize, int zoomPercent)
 	{
 		Font font = CTextAnalysisTool.SafeCreateFont(Settings.FontFamily, fontSize, zoomPercent, m_refineFilterControl.Font);
-		m_refineFilterControl.ApplyFont(font);
 		m_markedLinesDisplay.ApplyFont(font);
+		Font font2 = CTextAnalysisTool.SafeCreateFont(Settings.FontFamily, fontSize - 2, zoomPercent, m_refineFilterControl.Font);
+		m_refineFilterControl.ApplyFont(font2);
 	}
 
 	public void UpdateSettingsChanged(OptionsBehaviorProperties options)

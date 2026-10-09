@@ -255,6 +255,10 @@ internal sealed class CTextAnalysisTool : IDisposable
 		}
 		SetMainWindowTitle();
 		LinesChanged();
+		if (m_mainWindow != null && !m_mainWindow.IsDisposed)
+		{
+			m_lineCollectionDisplay.ListBox.Focus();
+		}
 	}
 
 	public void LoadLinesFromFile(string fileName)
