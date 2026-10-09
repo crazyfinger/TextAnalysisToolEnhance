@@ -18,9 +18,17 @@
 3. 在仓库根目录构建：
    `dotnet build src/TextAnalysisTool.NET.csproj -c Release`
    - `-c Release` = 发布版构建（省略即为调试版）。
-4. 产物：仓库根目录下的 `TextAnalysisTool.NET.exe`（已被 gitignore，不会提交）。
+4. 产物：仓库根目录下**自包含的单文件** `TextAnalysisTool.NET.exe`（已被 gitignore，不会提交）。
 
-改完代码后，只需重新执行第 3 步即可。csproj 中的 `<OutputPath>` 已配置为把 exe（及 `.pdb`/`.exe.config`）直接输出到仓库根目录。
+改完代码后，只需重新执行第 3 步即可。csproj 中的 `<OutputPath>` 已配置为把 exe（及 `.pdb`）直接输出到仓库根目录。
+
+### 单文件打包说明
+
+构建产物是**自包含的单文件** exe——**无需任何额外 `.dll`，也无需 `.exe.config`**。它只依赖 Windows 自带的 .NET Framework 4.8 运行时，因此在任何 Windows 机器上都能开箱即用，和官方 exe 完全一致。
+
+原理：`FilterImage` 图标在 resx 中以 **base64 字符串**保存（运行时解码为 `Bitmap`），而不是二进制序列化对象。所有资源都变成纯字符串后，MSBuild 会采用**经典** `.resources` 格式——其读取器位于 `System.dll` 内部，因此不再需要 `System.Resources.Extensions` 包，也删除了旧的绑定重定向 `.exe.config`。
+
+> **注意：** 不要尝试用 ILRepack 之类工具把 `System.Resources.Extensions.dll` 合并进 exe。内嵌 `.resources` 头是按强命名程序集名 `System.Resources.Extensions, Version=4.0.0.0` 解析读取器的；合并后该程序集不复存在，启动会报 `System.IO.FileLoadException (0x80131040)`。
 
 ## 从零重新反编译
 - `ilspycmd -p -o build/decompiled data/TextAnalysisTool.NET.exe`

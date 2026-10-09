@@ -20,10 +20,26 @@ Requires the .NET SDK (9+ works) and `ilspycmd` (only to re-decompile):
 3. Build from the repo root:
    `dotnet build src/TextAnalysisTool.NET.csproj -c Release`
    - `-c Release` = release build (omit it for a debug build).
-4. Output: `TextAnalysisTool.NET.exe` in the repo root (gitignored, not committed).
+4. Output: a single self-contained `TextAnalysisTool.NET.exe` in the repo root (gitignored, not committed).
 
-That's it — after editing code, just re-run step 3. The project is configured to write the exe
-(and `.pdb`/`.exe.config`) straight into the repo root via `<OutputPath>` in the csproj.
+That's it — after editing code, just re-run step 3. The project writes the exe (and a `.pdb`) straight into
+the repo root via `<OutputPath>` in the csproj.
+
+### Single-file packaging notes
+
+The build produces a **self-contained, single-file** exe — **no extra `.dll`s and no `.exe.config`**. It
+depends only on the .NET Framework 4.8 runtime that ships with Windows, so it runs out-of-the-box on any
+Windows machine, exactly like the official binary.
+
+How it works: `FilterImage` is stored as a **base64 string** in the resx (decoded to a `Bitmap` at runtime)
+instead of a binary-serialized object. Keeping every resource a plain string makes MSBuild emit the
+**classic** `.resources` format, whose reader lives inside `System.dll` — so the `System.Resources.Extensions`
+package and the old binding-redirect `.exe.config` are no longer required.
+
+> **Caution:** do **not** try to merge `System.Resources.Extensions.dll` into the exe (e.g. with ILRepack).
+> The embedded `.resources` header resolves its reader by the strong-named assembly name
+> `System.Resources.Extensions, Version=4.0.0.0`; once merged that assembly no longer exists and startup
+> fails with `System.IO.FileLoadException (0x80131040)`.
 
 ## Re-decompiling from scratch
 - `ilspycmd -p -o build/decompiled data/TextAnalysisTool.NET.exe`
