@@ -146,8 +146,6 @@ internal sealed class BinaryHeap<T>
 
 internal static class LogMergeEngine
 {
-	public const string BuildStamp = "merge-hybrid-v2";
-
 	private struct SortedItem
 	{
 		public DateTime Timestamp;
@@ -206,15 +204,45 @@ internal static class LogMergeEngine
 		}
 	}
 
-	public static void WriteRunMarker(string dir)
+	// Tracks sort-phase progress by bytes read / total bytes across all sources.
+	private sealed class SortProgress
 	{
-		try
+		private readonly object m_lock = new object();
+
+		private readonly long m_totalBytes;
+
+		private readonly Action<int> m_report;
+
+		private long m_readBytes;
+
+		private int m_lastReported = -1;
+
+		public SortProgress(long totalBytes, Action<int> report)
 		{
-			File.AppendAllText(Path.Combine(dir, "TAT-run.log"),
-				$"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {BuildStamp}\n");
+			m_totalBytes = totalBytes;
+			m_report = report;
 		}
-		catch (IOException)
+
+		public void AddBytes(long delta)
 		{
+			if (delta <= 0)
+			{
+				return;
+			}
+			lock (m_lock)
+			{
+				m_readBytes += delta;
+				int pct = m_totalBytes > 0 ? (int)(m_readBytes * 50 / (double)m_totalBytes) : 50;
+				if (pct > 50)
+				{
+					pct = 50;
+				}
+				if (pct != m_lastReported)
+				{
+					m_lastReported = pct;
+					m_report?.Invoke(pct);
+				}
+			}
 		}
 	}
 
@@ -258,27 +286,28 @@ internal static class LogMergeEngine
 
 			SortedSource[] results = new SortedSource[sources.Count];
 			long totalLines = 0;
-			int completed = 0;
-			double sortShare = 100.0 / sources.Count;
-			object progressLock = new object();
 
+			// Precompute source sizes so the sort phase can report real byte-based
+			// progress (bytes read / total bytes across all sources).
+			long totalSize = 0;
+			long[] sizes = new long[sources.Count];
+			for (int i = 0; i < sources.Count; i++)
+			{
+				sizes[i] = GetSourceSize(sources[i]);
+				totalSize += sizes[i];
+			}
+			SortProgress sortProgress = new SortProgress(totalSize, reportProgress);
+
+			// Unified monotonic progress: sorting occupies 0..50% (real byte
+			// progress), the k-way merge occupies 50..100% (real line progress).
+			// Nothing ever jumps backward.
 			Parallel.For(0, sources.Count, new ParallelOptions { MaxDegreeOfParallelism = MergeParallelism }, i =>
 			{
-				results[i] = SortSource(sources[i], options, tempFiles);
-				lock (progressLock)
-				{
-					completed++;
-					totalLines += results[i].LineCount;
-					int pct = Math.Min(99, (int)(completed * sortShare));
-					if (pct != lastReported)
-					{
-						lastReported = pct;
-						reportProgress?.Invoke(pct);
-					}
-				}
+				results[i] = SortSource(sources[i], options, tempFiles, sortProgress, sizes[i]);
+				Interlocked.Add(ref totalLines, results[i].LineCount);
 			});
 
-			throttled(Math.Min(99, (int)(sources.Count * sortShare)));
+			throttled(50);
 			GlobalMerge(results, options, totalLines, throttled, isCancelled);
 			throttled(100);
 		}
@@ -302,7 +331,7 @@ internal static class LogMergeEngine
 
 	private static void MergeSingleSource(MergeSource source, MergeOptions options, Action<int> reportProgress, Func<bool> isCancelled)
 	{
-		List<SortedItem> items = LoadAndSort(source, options, out long lineCount);
+		List<SortedItem> items = LoadAndSort(source, options, out long lineCount, null, 0);
 		int total = items.Count;
 		using (StreamWriter writer = new StreamWriter(options.OutputPath, false, new UTF8Encoding(true), StreamBufferSize))
 		{
@@ -330,13 +359,35 @@ internal static class LogMergeEngine
 		}
 	}
 
-	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles)
+	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize)
 	{
 		if (ShouldSortInMemory(source))
 		{
-			return new SortedSource { Memory = LoadAndSort(source, options, out long count), LineCount = count };
+			return new SortedSource { Memory = LoadAndSort(source, options, out long count, progress, sourceSize), LineCount = count };
 		}
-		return SortSourceToTemp(source, options, tempFiles);
+		return SortSourceToTemp(source, options, tempFiles, progress, sourceSize);
+	}
+
+	private static long GetSourceSize(MergeSource source)
+	{
+		if (source.SizeBytes.HasValue && source.SizeBytes.Value > 0)
+		{
+			return source.SizeBytes.Value;
+		}
+		try
+		{
+			using (TextReader reader = source.Open())
+			{
+				if (reader is StreamReader sr && sr.BaseStream.CanSeek)
+				{
+					return sr.BaseStream.Length;
+				}
+			}
+		}
+		catch (IOException)
+		{
+		}
+		return 1;
 	}
 
 	private static bool ShouldSortInMemory(MergeSource source)
@@ -348,12 +399,15 @@ internal static class LogMergeEngine
 		return true;
 	}
 
-	private static List<SortedItem> LoadAndSort(MergeSource source, MergeOptions options, out long lineCount)
+	private static List<SortedItem> LoadAndSort(MergeSource source, MergeOptions options, out long lineCount, SortProgress progress, long sourceSize)
 	{
 		List<SortedItem> items = new List<SortedItem>();
 		int index = 0;
+		long lastPos = 0;
+		bool seekable;
 		using (TextReader reader = source.Open())
 		{
+			seekable = reader is StreamReader sr && sr.BaseStream.CanSeek;
 			string line;
 			while ((line = reader.ReadLine()) != null)
 			{
@@ -366,7 +420,17 @@ internal static class LogMergeEngine
 					items.Add(new SortedItem { Timestamp = DateTime.MaxValue, Index = index, Line = line });
 				}
 				index++;
+				if (seekable && (index & 0x1FF) == 0)
+				{
+					long pos = ((StreamReader)reader).BaseStream.Position;
+					progress?.AddBytes(pos - lastPos);
+					lastPos = pos;
+				}
 			}
+		}
+		if (seekable)
+		{
+			progress?.AddBytes(sourceSize - lastPos);
 		}
 		lineCount = items.Count;
 		items.Sort((a, b) =>
@@ -377,15 +441,18 @@ internal static class LogMergeEngine
 		return items;
 	}
 
-	private static SortedSource SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles)
+	private static SortedSource SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize)
 	{
 		List<SortedItem> run = new List<SortedItem>(RunLineCap);
 		List<string> runFiles = new List<string>();
 		int index = 0;
 		long lineCount = 0;
+		long lastPos = 0;
+		bool seekable;
 
 		using (TextReader reader = source.Open())
 		{
+			seekable = reader is StreamReader sr && sr.BaseStream.CanSeek;
 			string line;
 			while ((line = reader.ReadLine()) != null)
 			{
@@ -400,11 +467,21 @@ internal static class LogMergeEngine
 					lineCount++;
 				}
 				index++;
+				if (seekable && (index & 0x1FF) == 0)
+				{
+					long pos = ((StreamReader)reader).BaseStream.Position;
+					progress?.AddBytes(pos - lastPos);
+					lastPos = pos;
+				}
 				if (run.Count >= RunLineCap)
 				{
 					FlushRun(run, runFiles, tempFiles);
 				}
 			}
+		}
+		if (seekable)
+		{
+			progress?.AddBytes(sourceSize - lastPos);
 		}
 
 		if (run.Count > 0)
@@ -587,16 +664,16 @@ internal static class LogMergeEngine
 
 			using (StreamWriter writer = new StreamWriter(options.OutputPath, false, new UTF8Encoding(true), StreamBufferSize))
 			{
-				long written = 0;
+				long processed = 0;
 				while (heap.Count > 0)
 				{
 					HeapItem item = heap.Pop();
+					processed++;
 
 					bool keep = !item.HasTimestamp || PassesTimeFilter(item.Timestamp, options);
 					if (keep)
 					{
 						writer.WriteLine(item.Line);
-						written++;
 					}
 
 					SourceCursor cursor = cursors[item.SourceIndex];
@@ -606,14 +683,20 @@ internal static class LogMergeEngine
 						heap.Push(new HeapItem { Timestamp = cursor.Timestamp, HasTimestamp = cursor.HasTimestamp, SourceIndex = item.SourceIndex, Line = cursor.Line });
 					}
 
-					if (written % 4096 == 0)
+					if ((processed & 0xFFF) == 0)
 					{
 						ThrowIfCancelled(isCancelled);
 					}
+					// Track lines processed (not lines kept/written) so progress
+					// reaches 100 even when the time filter drops some lines.
 					if (totalLines > 0)
 					{
-						int pct = (int)(50 + written * 50 / (double)totalLines);
-						reportProgress?.Invoke(Math.Min(99, pct));
+						int pct = (int)(50 + processed * 50 / (double)totalLines);
+						if (pct > 100)
+						{
+							pct = 100;
+						}
+						reportProgress?.Invoke(pct);
 					}
 				}
 			}

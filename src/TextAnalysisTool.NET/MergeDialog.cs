@@ -97,10 +97,37 @@ internal sealed class MergeDialog : Form
 
 	private void SetDefaultTimeRange()
 	{
-		// Default to no time filtering so the whole log set is merged.
-		// Never pre-fill 'From' with "today" or a detected timestamp: doing so
-		// would drop past-dated log lines (the engine drops ts <= From).
-		m_fromTextBox.Text = string.Empty;
+		string detected = null;
+		if (m_sources.Count > 0)
+		{
+			try
+			{
+				using (TextReader reader = OpenSource(m_sources[0]))
+				{
+					for (int i = 0; i < 200; i++)
+					{
+						string line = reader.ReadLine();
+						if (line == null)
+						{
+							break;
+						}
+						if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
+						{
+							detected = ts.ToString("MM-dd HH:mm:ss.fff");
+							break;
+						}
+					}
+				}
+			}
+			catch (Exception)
+			{
+			}
+		}
+		// Pre-fill 'From' with the first timestamp found in the first source so
+		// the range starts where the log data begins. If none is found, leave it
+		// empty (no time filtering). Never fall back to "today" -- that would
+		// drop all lines from past-dated logs.
+		m_fromTextBox.Text = detected ?? string.Empty;
 		m_toTextBox.Text = string.Empty;
 	}
 
@@ -463,8 +490,11 @@ internal sealed class MergeDialog : Form
 		m_browseButton.Enabled = !running;
 		m_fromTextBox.Enabled = !running;
 		m_toTextBox.Enabled = !running;
-m_timestampedCheck.Enabled = !running;
+		m_timestampedCheck.Enabled = !running;
 		m_outputTextBox.Enabled = !running;
+		// The merge button toggles to "Cancel" while running, so hide the
+		// dedicated Cancel button to avoid two Cancel buttons.
+		m_cancelButton.Visible = !running;
 	}
 
 	private void CancelButton_Click(object sender, EventArgs e)
@@ -515,7 +545,10 @@ m_timestampedCheck.Enabled = !running;
 		}
 		if (DateTime.TryParseExact(text.Trim(), "MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime result))
 		{
-			return result;
+			// The merge engine parses log timestamps as year-2000 dates (only MM-dd
+			// is present in the logs), so normalize to the same year to keep the
+			// From/To filter comparable with log timestamps.
+			return new DateTime(2000, result.Month, result.Day, result.Hour, result.Minute, result.Second, result.Millisecond);
 		}
 		return null;
 	}

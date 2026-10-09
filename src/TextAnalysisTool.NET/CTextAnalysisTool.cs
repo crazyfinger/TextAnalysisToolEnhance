@@ -320,7 +320,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 			text = "[No filter file]";
 		}
 		GetLoadSourceNames(out var shortName, out var _);
-		m_mainWindow.Text = string.Format("{0} - {1}{2} - TextAnalysisTool.NET [{3}]", shortName, text, FilterCollection.IsDirty ? "*" : "", LogMergeEngine.BuildStamp);
+		m_mainWindow.Text = string.Format("{0} - {1}{2} - {3}", shortName, text, FilterCollection.IsDirty ? "*" : "", "TextAnalysisTool.NET");
 	}
 
 	private void LoadOrSaveFilters(FiltersFileOperations op, string fileName)
@@ -812,14 +812,6 @@ internal sealed class CTextAnalysisTool : IDisposable
 	{
 		try
 		{
-			try
-			{
-				string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TAT-crash.log");
-				File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {e}\n\n");
-			}
-			catch (Exception)
-			{
-			}
 			string message = ((!(e is SecurityException)) ? $"Sorry, an unhandled exception has occurred and the application is about to terminate!\n\nPlease report this problem and include the following details:\n\n{Assembly.GetExecutingAssembly().FullName} - {ReleaseVersionString}\n{e.ToString()}" : "Sorry, a system security exception has occurred and the application is about to terminate!\n\nThe most common cause of this problem is attempting to run the application from a network share (by default the .NET Framework does not allow this).  Please copy the executable to your machine and try again.  If the error persists, please report this problem.");
 			ShowMessageBox(message, MessageBoxIcon.Hand);
 			Application.Exit();
@@ -934,7 +926,6 @@ internal sealed class CTextAnalysisTool : IDisposable
 			Application.ThreadException += OnThreadException;
 			Application.EnableVisualStyles();
 			Settings.Load();
-			LogMergeEngine.WriteRunMarker(AppDomain.CurrentDomain.BaseDirectory);
 			new CTextAnalysisTool().Run(args);
 			Settings.Save();
 		}
