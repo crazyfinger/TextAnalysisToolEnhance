@@ -103,6 +103,10 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 
 	private ToolStripMenuItem m_markerMenu;
 
+	private ToolStripMenuItem m_hideBeforeItem;
+
+	private ToolStripMenuItem m_hideAfterItem;
+
 	protected override CreateParams CreateParams
 	{
 		get
@@ -255,7 +259,13 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			m_markerMenu.DropDownItems.Add(MarkerMenu(i));
 		}
+		m_hideBeforeItem = new ToolStripMenuItem("Hide Lines &Before This");
+		m_hideBeforeItem.Click += (s, e2) => OnHideLines(hideBefore: true);
+		m_hideAfterItem = new ToolStripMenuItem("Hide Lines &After This");
+		m_hideAfterItem.Click += (s, e2) => OnHideLines(hideBefore: false);
 		ContextMenuStrip = new ContextMenuStrip();
+		ContextMenuStrip.Items.Add(m_hideBeforeItem);
+		ContextMenuStrip.Items.Add(m_hideAfterItem);
 		ContextMenuStrip.Items.Add(m_markerMenu);
 		ContextMenuStrip.Opening += ContextMenuStrip_Opening;
 		base.MouseUp += ContextMenuStripPositioning;
@@ -281,7 +291,11 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		ToolStripDropDown menu = (ToolStripDropDown)sender;
 		menu.Items.Clear();
 		AddPluginMenuItems(menu);
+		menu.Items.Add(m_hideBeforeItem);
+		menu.Items.Add(m_hideAfterItem);
 		menu.Items.Add(m_markerMenu);
+		m_hideBeforeItem.Enabled = enabled;
+		m_hideAfterItem.Enabled = enabled;
 		m_markerMenu.Enabled = enabled;
 		foreach (ToolStripItem item in m_markerMenu.DropDownItems)
 		{
@@ -290,6 +304,16 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 				fullyEnabledMenuItem.Enabled = enabled;
 			}
 		}
+	}
+
+	private void OnHideLines(bool hideBefore)
+	{
+		int lineNumber = GetSelectedLineNumber();
+		if (lineNumber < 0)
+		{
+			return;
+		}
+		m_textAnalysisTool.AddHideLinesFilter(lineNumber, hideBefore);
 	}
 
 	private void AddPluginMenuItems(ToolStripDropDown menu)

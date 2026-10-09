@@ -567,6 +567,12 @@ internal sealed class CTextAnalysisTool : IDisposable
 		m_filterCollection.Add(filter);
 	}
 
+	public void AddHideLinesFilter(int lineNumber, bool hideBefore)
+	{
+		LineNumberFilter filter = new LineNumberFilter(enabled: true, excluding: true, Color.Empty, Color.Empty, lineNumber, hideBefore, (hideBefore ? "Hide lines before line " : "Hide lines after line ") + lineNumber);
+		m_filterCollection.Add(filter);
+	}
+
 	public void ShowEditFilterDialog(Filter editFilter)
 	{
 		using FilterDialog filterDialog = new FilterDialog(null, editFilter, GetCustomColors);

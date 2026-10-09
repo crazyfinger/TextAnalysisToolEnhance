@@ -325,6 +325,10 @@ internal sealed class FilterDialog : FilterFindDialogBase
 				MatchesTextFilter matchesTextFilter = (MatchesTextFilter)m_filterList[i];
 				filter = new MatchesTextFilter(matchesTextFilter.Enabled, (m_excludingCheck.CheckState == CheckState.Indeterminate) ? matchesTextFilter.Excluding : m_excludingCheck.Checked, m_foreColorCombo.IsIndeterminateColor ? matchesTextFilter.ForegroundColor : m_foreColorCombo.SelectedColor, m_backColorCombo.IsIndeterminateColor ? matchesTextFilter.BackgroundColor : m_backColorCombo.SelectedColor, matchesTextFilter.FilterPattern, (m_caseSensitiveCheck.CheckState == CheckState.Indeterminate) ? matchesTextFilter.CaseSensitive : m_caseSensitiveCheck.Checked, (m_regularExpressionCheck.CheckState == CheckState.Indeterminate) ? matchesTextFilter.RegularExpression : m_regularExpressionCheck.Checked, (m_descriptionBox.Text == "[multiple values]") ? matchesTextFilter.Description : m_descriptionBox.Text);
 			}
+			else if (m_filterList[i] is LineNumberFilter lineNumberFilter)
+			{
+				filter = new LineNumberFilter(lineNumberFilter.Enabled, lineNumberFilter.Excluding, lineNumberFilter.ForegroundColor, lineNumberFilter.BackgroundColor, lineNumberFilter.LineNumber, lineNumberFilter.HideBefore, (m_descriptionBox.Text == "[multiple values]") ? lineNumberFilter.Description : m_descriptionBox.Text);
+			}
 			else
 			{
 				if (!(m_filterList[i] is MarkedFilter))

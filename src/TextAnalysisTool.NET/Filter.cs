@@ -34,6 +34,12 @@ internal abstract class Filter
 
 	protected const string m_xmlString_filterTypeMarked = "marked";
 
+	protected const string m_xmlString_filterTypeLineNumber = "line_number";
+
+	protected const string m_xmlString_lineNumber = "line";
+
+	protected const string m_xmlString_hideBefore = "hide_before";
+
 	protected const string m_xmlString_filterTypeMatchesText = "matches_text";
 
 	protected const string m_xmlString_yes = "y";
@@ -146,6 +152,12 @@ internal abstract class Filter
 			xmlWriter.WriteAttributeString("type", "marked");
 			xmlWriter.WriteAttributeString("marker", (markedFilter.Marker + 1).ToString(CultureInfo.CurrentCulture));
 		}
+		else if (this is LineNumberFilter lineNumberFilter)
+		{
+			xmlWriter.WriteAttributeString("type", "line_number");
+			xmlWriter.WriteAttributeString("line", lineNumberFilter.LineNumber.ToString(CultureInfo.CurrentCulture));
+			xmlWriter.WriteAttributeString("hide_before", lineNumberFilter.HideBefore ? "y" : "n");
+		}
 		xmlWriter.WriteEndElement();
 	}
 
@@ -195,6 +207,15 @@ internal abstract class Filter
 			int num = int.Parse(namedItem8.Value, CultureInfo.CurrentCulture) - 1;
 			Utility.ThrowExceptionIf(num < 0 || 8 <= num, null, typeof(ApplicationException));
 			return new MarkedFilter(enabled, excluding, foreColor, backColor, num, description);
+		}
+		if ("line_number" == value)
+		{
+			XmlNode lineNode = attributes.GetNamedItem("line");
+			XmlNode hideBeforeNode = attributes.GetNamedItem("hide_before");
+			Utility.ThrowExceptionIf(lineNode == null || hideBeforeNode == null, null, typeof(ApplicationException));
+			int lineNumber = int.Parse(lineNode.Value, CultureInfo.CurrentCulture);
+			bool hideBefore = hideBeforeNode.Value.FromYNToBool();
+			return new LineNumberFilter(enabled, excluding, foreColor, backColor, lineNumber, hideBefore, description);
 		}
 		return null;
 	}
