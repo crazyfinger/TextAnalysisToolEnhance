@@ -120,6 +120,14 @@ internal sealed class MainWindow : Form
 
 	private readonly FilterCollectionDisplay m_filterCollectionDisplay;
 
+	private readonly MarkedLinesDisplay m_markedLinesDisplay;
+
+	private readonly Panel m_filterPane;
+
+	private readonly Splitter m_filterSplitter;
+
+	private bool m_initialMarkedSplitDone;
+
 	private readonly StatusStrip m_statusStrip;
 
 	private readonly ToolStripStatusLabel m_statusMessage;
@@ -369,10 +377,24 @@ internal sealed class MainWindow : Form
 		m_splitter.SplitterMoving += OnSplitterMoving;
 		m_refineFilterControl = new RefineFilterControl();
 		m_refineFilterControl.CriteriaChanged += m_refineFilterControl_RefineTextChanged;
+		m_refineFilterControl.Dock = DockStyle.Top;
 		m_filterCollectionDisplay = filterCollectionDisplay;
 		m_filterCollectionDisplay.Dock = DockStyle.Fill;
 		m_filterCollectionDisplay.TabIndex = 1;
 		float dPIScalingFactor = ControlExtensions.GetDPIScalingFactor();
+		m_markedLinesDisplay = new MarkedLinesDisplay(m_lineCollectionDisplay.ListBox);
+		m_markedLinesDisplay.Dock = DockStyle.Fill;
+		m_filterPane = new Panel();
+		m_filterPane.Dock = DockStyle.Fill;
+		m_filterSplitter = new Splitter();
+		m_filterSplitter.Width = (int)(4f * dPIScalingFactor);
+		m_filterSplitter.Height = (int)(4f * dPIScalingFactor);
+		m_filterSplitter.Cursor = Cursors.SizeWE;
+		m_lineCollectionDisplay.ListBox.MarkersChanged += LineCollectionDisplayListBox_MarkersChanged;
+		m_filterPane.Controls.Add(m_filterCollectionDisplay);
+		m_filterPane.Controls.Add(m_filterSplitter);
+		m_filterPane.Controls.Add(m_markedLinesDisplay);
+		m_filterPane.Controls.Add(m_refineFilterControl);
 		m_statusStrip = new StatusStrip();
 		m_statusStrip.Dock = DockStyle.Bottom;
 		m_statusStrip.ShowItemToolTips = true;
@@ -421,7 +443,7 @@ internal sealed class MainWindow : Form
 		m_statusZoom.ToolTipText = "Zoom Level";
 		m_statusZoom.Text = m_lineCollectionDisplay.ListBox.ZoomPercent.ToString("0 \\%");
 		m_statusStrip.Items.Add(m_statusZoom);
-		base.Controls.AddRange(new Control[5] { m_filterCollectionDisplay, m_refineFilterControl, m_splitter, m_lineCollectionDisplay, m_statusStrip });
+		base.Controls.AddRange(new Control[4] { m_filterPane, m_splitter, m_lineCollectionDisplay, m_statusStrip });
 		base.Controls.Add(menuStrip);
 		base.MainMenuStrip = menuStrip;
 		SetFilterListLocation(Settings.FilterListLocation);
@@ -526,7 +548,7 @@ internal sealed class MainWindow : Form
 
 	private void m_refineFilterControl_RefineTextChanged(object sender, EventArgs e)
 	{
-		m_textAnalysisTool.FilterCollection.SetRefineFilterText(m_refineFilterControl.RefineText, m_refineFilterControl.CaseSensitive, m_refineFilterControl.UseRegex);
+		m_textAnalysisTool.FilterCollection.SetRefineFilterText(m_refineFilterControl.RefineText, m_refineFilterControl.Excluding, m_refineFilterControl.CaseSensitive, m_refineFilterControl.UseRegex);
 	}
 
 	private void m_lineCollectionDisplay_ZoomLevelChanged(object sender, LineCollectionDisplayListBox.ZoomLevelEventArgs e)
@@ -537,6 +559,11 @@ internal sealed class MainWindow : Form
 	private void m_lineCollectionDisplay_SelectedIndexChanged(object sender, EventArgs e)
 	{
 		SetStatusSelection();
+	}
+
+	private void LineCollectionDisplayListBox_MarkersChanged(object sender, EventArgs e)
+	{
+		m_markedLinesDisplay.RefreshMarkedLines();
 	}
 
 	public void SetStatusSelection()
@@ -777,7 +804,6 @@ internal sealed class MainWindow : Form
 		{
 		case DockStyle.Left:
 			m_splitter.Dock = DockStyle.Right;
-			m_refineFilterControl.Dock = DockStyle.Right;
 			m_lineCollectionDisplay.Dock = DockStyle.Right;
 			m_lineCollectionDisplay.Left = base.ClientRectangle.Width - LineCollectionDisplayWidth;
 			m_lineCollectionDisplay.Width = LineCollectionDisplayWidth;
@@ -785,7 +811,6 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Right:
 			m_splitter.Dock = DockStyle.Left;
-			m_refineFilterControl.Dock = DockStyle.Left;
 			m_lineCollectionDisplay.Dock = DockStyle.Left;
 			m_lineCollectionDisplay.Left = 0;
 			m_lineCollectionDisplay.Width = LineCollectionDisplayWidth;
@@ -793,7 +818,6 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Top:
 			m_splitter.Dock = DockStyle.Bottom;
-			m_refineFilterControl.Dock = DockStyle.Bottom;
 			m_lineCollectionDisplay.Dock = DockStyle.Bottom;
 			m_lineCollectionDisplay.Top = DisplayAreaHeight - LineCollectionDisplayHeight;
 			m_lineCollectionDisplay.Height = LineCollectionDisplayHeight;
@@ -801,7 +825,6 @@ internal sealed class MainWindow : Form
 			break;
 		case DockStyle.Bottom:
 			m_splitter.Dock = DockStyle.Top;
-			m_refineFilterControl.Dock = DockStyle.Top;
 			m_lineCollectionDisplay.Dock = DockStyle.Top;
 			m_lineCollectionDisplay.Top = 0;
 			m_lineCollectionDisplay.Height = LineCollectionDisplayHeight;
@@ -819,6 +842,31 @@ internal sealed class MainWindow : Form
 			m_splitter.Height = (int)(4f * dPIScalingFactor);
 			m_splitter.Cursor = Cursors.SizeNS;
 		}
+		UpdateFilterPaneLayout(dockStyle);
+	}
+
+	private void UpdateFilterPaneLayout(DockStyle dockStyle)
+	{
+		m_filterPane.SuspendLayout();
+		m_initialMarkedSplitDone = false;
+		float dPIScalingFactor = ControlExtensions.GetDPIScalingFactor();
+		if (dockStyle == DockStyle.Left || dockStyle == DockStyle.Right)
+		{
+			m_filterSplitter.Dock = DockStyle.Bottom;
+			m_filterSplitter.Height = (int)(4f * dPIScalingFactor);
+			m_filterSplitter.Cursor = Cursors.SizeNS;
+			m_markedLinesDisplay.Dock = DockStyle.Bottom;
+			m_markedLinesDisplay.Height = ((m_filterPane.ClientSize.Height > 0) ? (m_filterPane.ClientSize.Height / 2) : ((int)(180f * dPIScalingFactor)));
+		}
+		else
+		{
+			m_filterSplitter.Dock = DockStyle.Right;
+			m_filterSplitter.Width = (int)(4f * dPIScalingFactor);
+			m_filterSplitter.Cursor = Cursors.SizeWE;
+			m_markedLinesDisplay.Dock = DockStyle.Right;
+			m_markedLinesDisplay.Width = ((m_filterPane.ClientSize.Width > 0) ? (m_filterPane.ClientSize.Width / 2) : ((int)(240f * dPIScalingFactor)));
+		}
+		m_filterPane.ResumeLayout(performLayout: true);
 	}
 
 	private void ViewFilterList_Click(object sender, EventArgs e)
@@ -975,6 +1023,13 @@ internal sealed class MainWindow : Form
 	private void HelpAbout_Click(object sender, EventArgs e)
 	{
 		m_textAnalysisTool.ShowAboutDialog();
+	}
+
+	public void UpdateUIFonts(float fontSize, int zoomPercent)
+	{
+		Font font = CTextAnalysisTool.SafeCreateFont(Settings.FontFamily, fontSize, zoomPercent, m_refineFilterControl.Font);
+		m_refineFilterControl.ApplyFont(font);
+		m_markedLinesDisplay.ApplyFont(font);
 	}
 
 	public void UpdateSettingsChanged(OptionsBehaviorProperties options)
@@ -1138,6 +1193,18 @@ internal sealed class MainWindow : Form
 			m_splitter.SplitPosition = LineCollectionDisplayWidth;
 		}
 		base.OnLayout(e);
+		if (!m_initialMarkedSplitDone && m_filterPane.ClientSize.Width > 0 && m_filterPane.ClientSize.Height > 0)
+		{
+			if (m_filterSplitter.Dock == DockStyle.Right)
+			{
+				m_markedLinesDisplay.Width = m_filterPane.ClientSize.Width / 2;
+			}
+			else
+			{
+				m_markedLinesDisplay.Height = m_filterPane.ClientSize.Height / 2;
+			}
+			m_initialMarkedSplitDone = true;
+		}
 	}
 
 	protected override void OnDragEnter(DragEventArgs e)

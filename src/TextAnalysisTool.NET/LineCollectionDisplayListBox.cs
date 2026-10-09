@@ -131,6 +131,10 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 
 	public bool LinesVisible => CurrentDisplayLines.Count != 0;
 
+	public LineCollection SourceLines => m_sourceLines;
+
+	public event EventHandler MarkersChanged;
+
 	public int NumberLinesSelected => base.SelectedIndices.Count;
 
 	private LineCollection CurrentDisplayLines
@@ -375,6 +379,7 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 			m_maximumLineNumberDigits = CalculateMaximumLineNumberDigits();
 			m_currentlySelectedLineNumber = -1;
 			LineCollection.ResetMarkersInUse();
+			MarkersChanged?.Invoke(this, EventArgs.Empty);
 		}
 		if (flag2)
 		{
@@ -516,6 +521,7 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			currentDisplayLines.LineToggleMark(i, 0);
 		}
+		MarkersChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	protected override void OnDrawItem(DrawItemEventArgs e)
@@ -548,7 +554,7 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		}
 	}
 
-	private void GetLineColors(int lineNumber, bool selected, out Color foreColor, out Color backColor)
+	public void GetLineColors(int lineNumber, bool selected, out Color foreColor, out Color backColor)
 	{
 		if (selected)
 		{
@@ -716,6 +722,7 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			Invalidate();
 		}
+		MarkersChanged?.Invoke(this, EventArgs.Empty);
 	}
 
 	public void CallOnKeyDown(KeyEventArgs e)

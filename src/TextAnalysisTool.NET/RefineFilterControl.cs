@@ -8,17 +8,39 @@ namespace TextAnalysisTool.NET;
 [DesignerCategory("")]
 internal sealed class RefineFilterControl : Panel
 {
+	private const int MinTextBoxChars = 5;
+
+	private const int MaxGap = 8;
+
+	private const int ContentPaddingX = 2;
+
+	private const int ContentPaddingY = 3;
+
+	private const int RowGap = 4;
+
+	private readonly Panel m_content;
+
 	private readonly TextBox m_textBox;
+
+	private readonly Label m_label;
+
+	private readonly CheckBox m_excludingCheckBox;
 
 	private readonly CheckBox m_caseSensitiveCheckBox;
 
 	private readonly CheckBox m_regexCheckBox;
 
+	private readonly Button m_clearButton;
+
 	private readonly Timer m_debounceTimer;
+
+	private bool m_twoLine;
 
 	public event EventHandler CriteriaChanged;
 
 	public string RefineText => m_textBox.Text;
+
+	public bool Excluding => m_excludingCheckBox.Checked;
 
 	public bool CaseSensitive => m_caseSensitiveCheckBox.Checked;
 
@@ -36,61 +58,156 @@ internal sealed class RefineFilterControl : Panel
 		m_textBox.Clear();
 	}
 
+	public void ApplyFont(Font font)
+	{
+		Font = font;
+		m_textBox.Font = font;
+		UpdateLayout();
+	}
+
 	public RefineFilterControl()
 	{
 		SuspendLayout();
-		Height = 30;
-		Padding = new Padding(3, 2, 3, 2);
+		Padding = new Padding(2);
 		m_debounceTimer = new Timer
 		{
 			Interval = 250
 		};
 		m_debounceTimer.Tick += m_debounceTimer_Tick;
-		m_textBox = new TextBox
-		{
-			Dock = DockStyle.Fill,
-			Multiline = false
-		};
-		Label label = new Label
+		m_label = new Label
 		{
 			Text = "&Refine:",
-			Dock = DockStyle.Left,
 			AutoSize = true,
-			Margin = new Padding(0, 4, 4, 0),
 			TextAlign = ContentAlignment.MiddleLeft
+		};
+		m_textBox = new TextBox
+		{
+			Multiline = false
+		};
+		m_excludingCheckBox = new CheckBox
+		{
+			Text = "&Excluding",
+			AutoSize = true
 		};
 		m_caseSensitiveCheckBox = new CheckBox
 		{
 			Text = "Match &case",
-			Dock = DockStyle.Right,
-			AutoSize = true,
-			Margin = new Padding(0, 5, 4, 0)
+			AutoSize = true
 		};
 		m_regexCheckBox = new CheckBox
 		{
 			Text = "Re&gex",
-			Dock = DockStyle.Right,
-			AutoSize = true,
-			Margin = new Padding(0, 5, 4, 0)
+			AutoSize = true
 		};
-		Button clearButton = new Button
+		m_clearButton = new Button
 		{
 			Text = "&Clear",
-			Dock = DockStyle.Right,
 			AutoSize = true,
-			Margin = new Padding(0, 2, 0, 2),
 			TabStop = false
 		};
+		m_content = new Panel
+		{
+			Dock = DockStyle.Fill,
+			AutoScroll = true,
+			BackColor = Color.Transparent
+		};
+		m_content.Controls.Add(m_label);
+		m_content.Controls.Add(m_textBox);
+		m_content.Controls.Add(m_excludingCheckBox);
+		m_content.Controls.Add(m_caseSensitiveCheckBox);
+		m_content.Controls.Add(m_regexCheckBox);
+		m_content.Controls.Add(m_clearButton);
 		m_textBox.TextChanged += m_textBox_TextChanged;
+		m_excludingCheckBox.CheckedChanged += m_criteria_Changed;
 		m_caseSensitiveCheckBox.CheckedChanged += m_criteria_Changed;
 		m_regexCheckBox.CheckedChanged += m_criteria_Changed;
-		clearButton.Click += ClearButton_Click;
-		Controls.Add(m_textBox);
-		Controls.Add(label);
-		Controls.Add(m_regexCheckBox);
-		Controls.Add(m_caseSensitiveCheckBox);
-		Controls.Add(clearButton);
+		m_clearButton.Click += ClearButton_Click;
+		Controls.Add(m_content);
+		UpdateLayout();
 		ResumeLayout(performLayout: true);
+	}
+
+	protected override void OnResize(EventArgs e)
+	{
+		base.OnResize(e);
+		UpdateLayout();
+	}
+
+	private void UpdateLayout()
+	{
+		int cw = Math.Max(0, m_content.ClientSize.Width - 2 * ContentPaddingX);
+		int labelW = m_label.PreferredSize.Width;
+		int exclW = m_excludingCheckBox.PreferredSize.Width;
+		int caseW = m_caseSensitiveCheckBox.PreferredSize.Width;
+		int regexW = m_regexCheckBox.PreferredSize.Width;
+		int clearW = m_clearButton.PreferredSize.Width;
+		int fixedW = labelW + exclW + caseW + regexW + clearW;
+		int minTextW = MinTextBoxChars * TextRenderer.MeasureText("0", Font).Width;
+		int scrollbarHeight = SystemInformation.HorizontalScrollBarHeight;
+		int rowHeight = Math.Max(m_textBox.Height, m_caseSensitiveCheckBox.PreferredSize.Height);
+		int contentHeight;
+
+		m_twoLine = cw < fixedW + minTextW;
+
+		if (m_twoLine)
+		{
+			int x = ContentPaddingX;
+			int y0 = ContentPaddingY;
+			m_label.SetBounds(x, y0, labelW, m_textBox.Height);
+			x += labelW;
+			int textW = Math.Max(minTextW, cw - labelW);
+			m_textBox.SetBounds(x, y0, textW, m_textBox.Height);
+
+			int y1 = y0 + m_textBox.Height + RowGap;
+			int x1 = ContentPaddingX;
+			x1 = PlaceRight(m_excludingCheckBox, x1, y1);
+			x1 = PlaceRight(m_caseSensitiveCheckBox, x1, y1);
+			x1 = PlaceRight(m_regexCheckBox, x1, y1);
+			PlaceRight(m_clearButton, x1, y1);
+
+			int row0Width = labelW + textW + 2 * ContentPaddingX;
+			int row1Width = exclW + caseW + regexW + clearW + 3 * MaxGap + 2 * ContentPaddingX;
+			contentHeight = y1 + m_caseSensitiveCheckBox.PreferredSize.Height + ContentPaddingY;
+			m_content.AutoScrollMinSize = new Size(Math.Max(cw, Math.Max(row0Width, row1Width)), 0);
+		}
+		else
+		{
+			int gap = MaxGap;
+			if (cw < fixedW + minTextW + MaxGap * 5)
+			{
+				gap = Math.Max(0, (cw - fixedW - minTextW) / 5);
+			}
+			int textW = Math.Max(minTextW, cw - fixedW - gap * 5);
+			int y = ContentPaddingY + (rowHeight - m_textBox.Height) / 2;
+			int x = ContentPaddingX;
+			PlaceRight(m_label, x, ContentPaddingY);
+			x += labelW + gap;
+			m_textBox.SetBounds(x, y, textW, m_textBox.Height);
+			x += textW + gap;
+			x = PlaceRight(m_excludingCheckBox, x, ContentPaddingY);
+			x = PlaceRight(m_caseSensitiveCheckBox, x, ContentPaddingY);
+			x = PlaceRight(m_regexCheckBox, x, ContentPaddingY);
+			PlaceRight(m_clearButton, x, ContentPaddingY);
+
+			contentHeight = rowHeight + 2 * ContentPaddingY;
+			int contentWidth = labelW + textW + exclW + caseW + regexW + clearW + gap * 5 + 2 * ContentPaddingX;
+			m_content.AutoScrollMinSize = new Size(Math.Max(cw, contentWidth), 0);
+		}
+
+		int newHeight = contentHeight + scrollbarHeight + Padding.Vertical;
+		if (newHeight != m_lastHeight)
+		{
+			m_lastHeight = newHeight;
+			Height = newHeight;
+		}
+	}
+
+	private int m_lastHeight = -1;
+
+	private int PlaceRight(Control control, int x, int y)
+	{
+		control.SetBounds(x, y, control.PreferredSize.Width, control.PreferredSize.Height);
+		return x + control.PreferredSize.Width + MaxGap;
 	}
 
 	private void m_textBox_TextChanged(object sender, EventArgs e)

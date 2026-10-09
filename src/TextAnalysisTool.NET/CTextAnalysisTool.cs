@@ -821,6 +821,10 @@ internal sealed class CTextAnalysisTool : IDisposable
 		Font font = new Font(m_filterCollectionDisplay.Font.FontFamily, newFontSize * ((float)zoomPercent / 100f));
 		m_filterCollectionDisplay.Font = font;
 		m_filterCollectionDisplay.Refresh();
+		if (m_mainWindow != null && !m_mainWindow.IsDisposed)
+		{
+			m_mainWindow.UpdateUIFonts(newFontSize, zoomPercent);
+		}
 	}
 
 	public void SetCurrentEncoding(string encodingName)

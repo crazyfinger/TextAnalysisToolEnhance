@@ -341,6 +341,11 @@ internal sealed class LineCollection
 		return m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].MarkedBy(marker);
 	}
 
+	public bool IsLineMarkedByAny(int lineNumber)
+	{
+		return m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].MarkedByAny;
+	}
+
 	public void LineToggleMark(int lineNumber, int marker)
 	{
 		bool markedByAny = m_lineChunks[lineNumber >> 14][lineNumber & 0x3FFF].MarkedByAny;
@@ -451,7 +456,7 @@ internal sealed class LineCollection
 		int[] lineNumbers = LineNumbersInCollection;
 		for (int i = 0; i < lineNumbers.Length; i++)
 		{
-			if (!filter.Accepts(this, lineNumbers[i]))
+			if (!(filter.Accepts(this, lineNumbers[i]) ^ filter.Excluding))
 			{
 				m_members[lineNumbers[i]] = false;
 			}
