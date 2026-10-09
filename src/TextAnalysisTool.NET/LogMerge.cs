@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TextAnalysisTool.NET;
 
@@ -144,19 +146,26 @@ internal sealed class BinaryHeap<T>
 
 internal static class LogMergeEngine
 {
-	public const string BuildStamp = "merge-ext-chunk-v1";
+	public const string BuildStamp = "merge-hybrid-v2";
 
-	public static void WriteRunMarker(string dir)
+	private struct SortedItem
 	{
-		try
-		{
-			File.AppendAllText(Path.Combine(dir, "TAT-run.log"),
-				$"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {BuildStamp}\n");
-		}
-		catch (IOException)
-		{
-		}
+		public DateTime Timestamp;
+
+		public int Index;
+
+		public string Line;
 	}
+
+	private struct SortedSource
+	{
+		public List<SortedItem> Memory;
+
+		public string TempPath;
+
+		public long LineCount;
+	}
+
 	private struct RunItem
 	{
 		public DateTime Timestamp;
@@ -166,7 +175,7 @@ internal static class LogMergeEngine
 		public string Line;
 	}
 
-	private struct MergedItem
+	private struct HeapItem
 	{
 		public DateTime Timestamp;
 
@@ -181,13 +190,31 @@ internal static class LogMergeEngine
 
 	private const int StreamBufferSize = 1 << 20;
 
+	private const int MergeParallelism = 2;
+
+	private static readonly long MaxInMemorySortBytes = 300L * 1024 * 1024;
+
 	private static readonly object s_tempFileLock = new object();
 
-	private static string NewTempFile()
+	private static string NewTempFile(List<string> tempFiles)
 	{
 		lock (s_tempFileLock)
 		{
-			return Path.GetTempFileName();
+			string path = Path.GetTempFileName();
+			tempFiles.Add(path);
+			return path;
+		}
+	}
+
+	public static void WriteRunMarker(string dir)
+	{
+		try
+		{
+			File.AppendAllText(Path.Combine(dir, "TAT-run.log"),
+				$"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {BuildStamp}\n");
+		}
+		catch (IOException)
+		{
 		}
 	}
 
@@ -202,13 +229,21 @@ internal static class LogMergeEngine
 			throw new ArgumentException("No output path.");
 		}
 
-		List<string> tempFiles = new List<string>();
 		string outDir = Path.GetDirectoryName(Path.GetFullPath(options.OutputPath));
 		if (!string.IsNullOrEmpty(outDir))
 		{
 			Directory.CreateDirectory(outDir);
 		}
 
+		if (sources.Count == 1)
+		{
+			// Fast path: a single source can be sorted in memory and written
+			// directly without any temp files or k-way merge.
+			MergeSingleSource(sources[0], options, reportProgress, isCancelled);
+			return;
+		}
+
+		List<string> tempFiles = new List<string>();
 		try
 		{
 			int lastReported = -1;
@@ -221,23 +256,30 @@ internal static class LogMergeEngine
 				}
 			};
 
-			// Phase 1: sort each source to a temporary file using a bounded-memory external sort.
-			List<(string SortedPath, int LineCount)> sorted = new List<(string, int)>();
-			double sortShare = 100.0 / sources.Count;
+			SortedSource[] results = new SortedSource[sources.Count];
 			long totalLines = 0;
+			int completed = 0;
+			double sortShare = 100.0 / sources.Count;
+			object progressLock = new object();
 
-			for (int s = 0; s < sources.Count; s++)
+			Parallel.For(0, sources.Count, new ParallelOptions { MaxDegreeOfParallelism = MergeParallelism }, i =>
 			{
-				ThrowIfCancelled(isCancelled);
-				throttled((int)(s * sortShare));
-				(string sortedPath, int lineCount) = SortSourceToTemp(sources[s], options, tempFiles, s * sortShare, sortShare, throttled, isCancelled);
-				totalLines += lineCount;
-				sorted.Add((sortedPath, lineCount));
-			}
+				results[i] = SortSource(sources[i], options, tempFiles);
+				lock (progressLock)
+				{
+					completed++;
+					totalLines += results[i].LineCount;
+					int pct = Math.Min(99, (int)(completed * sortShare));
+					if (pct != lastReported)
+					{
+						lastReported = pct;
+						reportProgress?.Invoke(pct);
+					}
+				}
+			});
 
-			throttled((int)(sources.Count * sortShare));
-			GlobalMerge(sorted, options, totalLines, throttled, isCancelled);
-
+			throttled(Math.Min(99, (int)(sources.Count * sortShare)));
+			GlobalMerge(results, options, totalLines, throttled, isCancelled);
 			throttled(100);
 		}
 		finally
@@ -258,55 +300,111 @@ internal static class LogMergeEngine
 		}
 	}
 
-	private static (string SortedPath, int LineCount) SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles, double progressBase, double progressSpan, Action<int> reportProgress, Func<bool> isCancelled)
+	private static void MergeSingleSource(MergeSource source, MergeOptions options, Action<int> reportProgress, Func<bool> isCancelled)
 	{
-		List<(DateTime Timestamp, int Index, string Line)> run = new List<(DateTime, int, string)>(RunLineCap);
-		List<string> runFiles = new List<string>();
-		Stream seekableStream = null;
-		long length = 0;
-		int index = 0;
-		int lineCount = 0;
-
-		try
+		List<SortedItem> items = LoadAndSort(source, options, out long lineCount);
+		int total = items.Count;
+		using (StreamWriter writer = new StreamWriter(options.OutputPath, false, new UTF8Encoding(true), StreamBufferSize))
 		{
-			using (TextReader reader = source.Open())
+			int written = 0;
+			for (int i = 0; i < total; i++)
 			{
-				if (reader is StreamReader streamReader && streamReader.BaseStream is Stream baseStream && baseStream.CanSeek && baseStream.Length > 0)
+				SortedItem it = items[i];
+				bool hasTs = it.Timestamp != DateTime.MaxValue;
+				if (hasTs && !PassesTimeFilter(it.Timestamp, options))
 				{
-					seekableStream = baseStream;
-					length = baseStream.Length;
+					continue;
 				}
-
-				string line;
-				while ((line = reader.ReadLine()) != null)
+				writer.WriteLine(it.Line);
+				written++;
+				if ((i & 0xFFF) == 0)
 				{
-					if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
-					{
-						run.Add((ts, index, line));
-						lineCount++;
-					}
-					else if (!options.DropNonTimestampedLines)
-					{
-						run.Add((DateTime.MaxValue, index, line));
-						lineCount++;
-					}
-					index++;
-
-					if (run.Count >= RunLineCap)
-					{
-						FlushRun(run, runFiles, tempFiles);
-						if (seekableStream != null)
-						{
-							reportProgress?.Invoke(Math.Min(99, (int)(progressBase + progressSpan * seekableStream.Position / length)));
-						}
-						ThrowIfCancelled(isCancelled);
-					}
+					ThrowIfCancelled(isCancelled);
+				}
+				if (total > 0)
+				{
+					int pct = Math.Min(99, (int)(written * 100 / (double)total));
+					reportProgress?.Invoke(pct);
 				}
 			}
 		}
-		finally
+	}
+
+	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles)
+	{
+		if (ShouldSortInMemory(source))
 		{
-			reportProgress?.Invoke(Math.Min(99, (int)(progressBase + progressSpan)));
+			return new SortedSource { Memory = LoadAndSort(source, options, out long count), LineCount = count };
+		}
+		return SortSourceToTemp(source, options, tempFiles);
+	}
+
+	private static bool ShouldSortInMemory(MergeSource source)
+	{
+		if (source.SizeBytes.HasValue && source.SizeBytes.Value > 0)
+		{
+			return source.SizeBytes.Value * 3 <= MaxInMemorySortBytes;
+		}
+		return true;
+	}
+
+	private static List<SortedItem> LoadAndSort(MergeSource source, MergeOptions options, out long lineCount)
+	{
+		List<SortedItem> items = new List<SortedItem>();
+		int index = 0;
+		using (TextReader reader = source.Open())
+		{
+			string line;
+			while ((line = reader.ReadLine()) != null)
+			{
+				if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
+				{
+					items.Add(new SortedItem { Timestamp = ts, Index = index, Line = line });
+				}
+				else if (!options.DropNonTimestampedLines)
+				{
+					items.Add(new SortedItem { Timestamp = DateTime.MaxValue, Index = index, Line = line });
+				}
+				index++;
+			}
+		}
+		lineCount = items.Count;
+		items.Sort((a, b) =>
+		{
+			int c = a.Timestamp.CompareTo(b.Timestamp);
+			return c != 0 ? c : a.Index.CompareTo(b.Index);
+		});
+		return items;
+	}
+
+	private static SortedSource SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles)
+	{
+		List<SortedItem> run = new List<SortedItem>(RunLineCap);
+		List<string> runFiles = new List<string>();
+		int index = 0;
+		long lineCount = 0;
+
+		using (TextReader reader = source.Open())
+		{
+			string line;
+			while ((line = reader.ReadLine()) != null)
+			{
+				if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
+				{
+					run.Add(new SortedItem { Timestamp = ts, Index = index, Line = line });
+					lineCount++;
+				}
+				else if (!options.DropNonTimestampedLines)
+				{
+					run.Add(new SortedItem { Timestamp = DateTime.MaxValue, Index = index, Line = line });
+					lineCount++;
+				}
+				index++;
+				if (run.Count >= RunLineCap)
+				{
+					FlushRun(run, runFiles, tempFiles);
+				}
+			}
 		}
 
 		if (run.Count > 0)
@@ -315,14 +413,12 @@ internal static class LogMergeEngine
 		}
 		if (runFiles.Count == 0)
 		{
-			string empty = NewTempFile();
-			tempFiles.Add(empty);
-			return (empty, 0);
+			string empty = NewTempFile(tempFiles);
+			return new SortedSource { TempPath = empty, LineCount = 0 };
 		}
 
-		string sortedPath = NewTempFile();
-		tempFiles.Add(sortedPath);
-		MergeRuns(runFiles, sortedPath, isCancelled);
+		string sortedPath = NewTempFile(tempFiles);
+		MergeRuns(runFiles, sortedPath);
 		foreach (string runFile in runFiles)
 		{
 			try
@@ -336,30 +432,29 @@ internal static class LogMergeEngine
 			{
 			}
 		}
-		return (sortedPath, lineCount);
+		return new SortedSource { TempPath = sortedPath, LineCount = lineCount };
 	}
 
-	private static void FlushRun(List<(DateTime Timestamp, int Index, string Line)> run, List<string> runFiles, List<string> tempFiles)
+	private static void FlushRun(List<SortedItem> run, List<string> runFiles, List<string> tempFiles)
 	{
 		run.Sort((a, b) =>
 		{
 			int c = a.Timestamp.CompareTo(b.Timestamp);
 			return c != 0 ? c : a.Index.CompareTo(b.Index);
 		});
-		string runFile = NewTempFile();
-		tempFiles.Add(runFile);
+		string runFile = NewTempFile(tempFiles);
 		using (StreamWriter writer = new StreamWriter(runFile, false, new UTF8Encoding(false), StreamBufferSize))
 		{
-			foreach ((DateTime ts, int idx, string line) in run)
+			foreach (SortedItem item in run)
 			{
-				writer.WriteLine(line);
+				writer.WriteLine(item.Line);
 			}
 		}
 		runFiles.Add(runFile);
 		run.Clear();
 	}
 
-	private static void MergeRuns(List<string> runFiles, string sortedPath, Func<bool> isCancelled)
+	private static void MergeRuns(List<string> runFiles, string sortedPath)
 	{
 		BinaryHeap<RunItem> heap = new BinaryHeap<RunItem>((x, y) =>
 		{
@@ -408,25 +503,85 @@ internal static class LogMergeEngine
 		}
 	}
 
-	private static void GlobalMerge(List<(string SortedPath, int LineCount)> sorted, MergeOptions options, long totalLines, Action<int> reportProgress, Func<bool> isCancelled)
+	private sealed class SourceCursor
 	{
-		BinaryHeap<MergedItem> heap = new BinaryHeap<MergedItem>((x, y) =>
+		public bool InMemory;
+
+		public List<SortedItem> List;
+
+		public int Pos;
+
+		public StreamReader Reader;
+
+		public bool HasNext;
+
+		public bool HasTimestamp;
+
+		public DateTime Timestamp;
+
+		public string Line;
+
+		public void Advance()
+		{
+			if (InMemory)
+			{
+				if (Pos < List.Count)
+				{
+					SortedItem it = List[Pos++];
+					Line = it.Line;
+					HasTimestamp = it.Timestamp != DateTime.MaxValue;
+					Timestamp = it.Timestamp;
+					HasNext = true;
+				}
+				else
+				{
+					HasNext = false;
+				}
+			}
+			else
+			{
+				string line = Reader.ReadLine();
+				if (line == null)
+				{
+					HasNext = false;
+				}
+				else
+				{
+					Line = line;
+					HasTimestamp = LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix);
+					Timestamp = HasTimestamp ? ts : DateTime.MaxValue;
+					HasNext = true;
+				}
+			}
+		}
+	}
+
+	private static void GlobalMerge(SortedSource[] sorted, MergeOptions options, long totalLines, Action<int> reportProgress, Func<bool> isCancelled)
+	{
+		BinaryHeap<HeapItem> heap = new BinaryHeap<HeapItem>((x, y) =>
 		{
 			int c = x.Timestamp.CompareTo(y.Timestamp);
 			return c != 0 ? c : x.SourceIndex.CompareTo(y.SourceIndex);
 		});
-		StreamReader[] readers = new StreamReader[sorted.Count];
+		SourceCursor[] cursors = new SourceCursor[sorted.Length];
 		try
 		{
-			for (int i = 0; i < sorted.Count; i++)
+			for (int i = 0; i < sorted.Length; i++)
 			{
-				StreamReader reader = new StreamReader(sorted[i].SortedPath, Encoding.UTF8, true, StreamBufferSize);
-				readers[i] = reader;
-				string line = reader.ReadLine();
-				if (line != null)
+				SourceCursor cursor;
+				if (sorted[i].Memory != null)
 				{
-					bool hasTs = LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix);
-					heap.Push(new MergedItem { Timestamp = hasTs ? ts : DateTime.MaxValue, HasTimestamp = hasTs, SourceIndex = i, Line = line });
+					cursor = new SourceCursor { InMemory = true, List = sorted[i].Memory };
+				}
+				else
+				{
+					cursor = new SourceCursor { InMemory = false, Reader = new StreamReader(sorted[i].TempPath, Encoding.UTF8, true, StreamBufferSize) };
+				}
+				cursors[i] = cursor;
+				cursor.Advance();
+				if (cursor.HasNext)
+				{
+					heap.Push(new HeapItem { Timestamp = cursor.Timestamp, HasTimestamp = cursor.HasTimestamp, SourceIndex = i, Line = cursor.Line });
 				}
 			}
 
@@ -435,7 +590,7 @@ internal static class LogMergeEngine
 				long written = 0;
 				while (heap.Count > 0)
 				{
-					MergedItem item = heap.Pop();
+					HeapItem item = heap.Pop();
 
 					bool keep = !item.HasTimestamp || PassesTimeFilter(item.Timestamp, options);
 					if (keep)
@@ -444,21 +599,20 @@ internal static class LogMergeEngine
 						written++;
 					}
 
+					SourceCursor cursor = cursors[item.SourceIndex];
+					cursor.Advance();
+					if (cursor.HasNext)
+					{
+						heap.Push(new HeapItem { Timestamp = cursor.Timestamp, HasTimestamp = cursor.HasTimestamp, SourceIndex = item.SourceIndex, Line = cursor.Line });
+					}
+
 					if (written % 4096 == 0)
 					{
 						ThrowIfCancelled(isCancelled);
 					}
-
-					string next = readers[item.SourceIndex].ReadLine();
-					if (next != null)
-					{
-						bool hasTs2 = LogTimestampParser.TryParsePrefix(next, out DateTime ts2, out int prefix2);
-						heap.Push(new MergedItem { Timestamp = hasTs2 ? ts2 : DateTime.MaxValue, HasTimestamp = hasTs2, SourceIndex = item.SourceIndex, Line = next });
-					}
-
 					if (totalLines > 0)
 					{
-						int pct = (int)(50 + written * 50 / totalLines);
+						int pct = (int)(50 + written * 50 / (double)totalLines);
 						reportProgress?.Invoke(Math.Min(99, pct));
 					}
 				}
@@ -466,11 +620,11 @@ internal static class LogMergeEngine
 		}
 		finally
 		{
-			foreach (StreamReader r in readers)
+			foreach (SourceCursor c in cursors)
 			{
-				if (r != null)
+				if (c != null && c.Reader != null)
 				{
-					r.Dispose();
+					c.Reader.Dispose();
 				}
 			}
 		}
