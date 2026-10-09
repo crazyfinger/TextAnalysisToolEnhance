@@ -9,13 +9,12 @@
   <PropertyGroup>
     <LangVersion>11.0</LangVersion>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <GenerateResourceUsePreserializedResources>True</GenerateResourceUsePreserializedResources>
+    <GenerateResourceUsePreserializedResources>False</GenerateResourceUsePreserializedResources>
     <OutputPath>$(MSBuildProjectDirectory)\..\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
   </ItemGroup>
   <PropertyGroup>
     <ApplicationIcon>app.ico</ApplicationIcon>

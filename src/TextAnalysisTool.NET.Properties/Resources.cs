@@ -1,8 +1,10 @@
+using System;
 using System.CodeDom.Compiler;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Resources;
 using System.Runtime.CompilerServices;
 
@@ -45,7 +47,16 @@ public class Resources
 
 	public static string BuildDate => ResourceManager.GetString("BuildDate", resourceCulture);
 
-	public static Bitmap FilterImage => (Bitmap)ResourceManager.GetObject("FilterImage", resourceCulture);
+	public static Bitmap FilterImage
+	{
+		get
+		{
+			using (var ms = new MemoryStream(Convert.FromBase64String(ResourceManager.GetString("FilterImage", resourceCulture))))
+			{
+				return new Bitmap(ms);
+			}
+		}
+	}
 
 	internal Resources()
 	{
