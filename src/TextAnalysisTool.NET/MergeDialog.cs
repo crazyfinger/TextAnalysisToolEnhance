@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Text;
@@ -42,6 +43,8 @@ internal sealed class MergeDialog : Form
 
 	private CheckBox m_timestampedCheck;
 
+	private CheckBox m_openAfterMergeCheck;
+
 	private TextBox m_outputTextBox;
 
 	private Button m_browseButton;
@@ -53,8 +56,6 @@ internal sealed class MergeDialog : Form
 	private Button m_mergeButton;
 
 	private Button m_directButton;
-
-	private Button m_cancelButton;
 
 	private volatile bool m_cancelled;
 
@@ -75,7 +76,7 @@ internal sealed class MergeDialog : Form
 		MaximizeBox = false;
 		ShowInTaskbar = false;
 		FormBorderStyle = FormBorderStyle.FixedDialog;
-		ClientSize = new Size(660, 560);
+		ClientSize = new Size(660, 528);
 
 		Font = new Font("Microsoft Sans Serif", 9f, FontStyle.Regular, GraphicsUnit.Point, 0);
 		AutoScaleDimensions = new SizeF(120f, 120f);
@@ -238,7 +239,7 @@ private Button MakeDetectButton()
 		{
 			Dock = DockStyle.Fill,
 			ColumnCount = 5,
-			RowCount = 9,
+			RowCount = 10,
 			Padding = new Padding(pad),
 			Margin = Padding.Empty
 		};
@@ -251,6 +252,8 @@ private Button MakeDetectButton()
 		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -291,7 +294,7 @@ private Button MakeDetectButton()
 		root.Controls.Add(MakeLabel("To:"), 0, 3);
 		root.Controls.Add(m_toTextBox, 1, 3);
 
-		// Row 4: checkbox
+		// Row 4: timestamp checkbox
 		m_timestampedCheck = new CheckBox
 		{
 			Text = "Only merge lines that have a timestamp",
@@ -302,7 +305,18 @@ private Button MakeDetectButton()
 		root.Controls.Add(m_timestampedCheck, 0, 4);
 		root.SetColumnSpan(m_timestampedCheck, 5);
 
-		// Row 5: Output (textbox spans the time box + button + output columns)
+		// Row 5: open-after-merge checkbox
+		m_openAfterMergeCheck = new CheckBox
+		{
+			Text = "Open merged file when done",
+			Checked = true,
+			AutoSize = true,
+			Margin = new Padding(0, 2, 0, 4)
+		};
+		root.Controls.Add(m_openAfterMergeCheck, 0, 5);
+		root.SetColumnSpan(m_openAfterMergeCheck, 5);
+
+		// Row 6: Output (textbox spans the time box + button + output columns)
 		m_outputTextBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 28, Margin = new Padding(10, 0, 10, 0) };
 		m_browseButton = new Button
 		{
@@ -315,12 +329,12 @@ private Button MakeDetectButton()
 			Margin = new Padding(6, 0, 0, 0)
 		};
 		m_browseButton.Click += BrowseButton_Click;
-		root.Controls.Add(MakeLabel("Output:"), 0, 5);
-		root.Controls.Add(m_outputTextBox, 1, 5);
+		root.Controls.Add(MakeLabel("Output:"), 0, 6);
+		root.Controls.Add(m_outputTextBox, 1, 6);
 		root.SetColumnSpan(m_outputTextBox, 3);
-		root.Controls.Add(m_browseButton, 4, 5);
+		root.Controls.Add(m_browseButton, 4, 6);
 
-		// Row 6: progress
+		// Row 7: progress
 		m_progressBar = new ProgressBar
 		{
 			Dock = DockStyle.Fill,
@@ -330,17 +344,17 @@ private Button MakeDetectButton()
 			Margin = new Padding(0, 12, 0, 2),
 			Visible = false
 		};
-		root.Controls.Add(m_progressBar, 0, 6);
+		root.Controls.Add(m_progressBar, 0, 7);
 		root.SetColumnSpan(m_progressBar, 5);
 
-		// Row 7: status
+		// Row 8: status
 		m_statusLabel = new Label { Text = "", AutoSize = true, Margin = new Padding(0, 2, 0, 4) };
-		root.Controls.Add(m_statusLabel, 0, 7);
+		root.Controls.Add(m_statusLabel, 0, 8);
 		root.SetColumnSpan(m_statusLabel, 5);
 
-		// Row 8: buttons
+		// Row 9: buttons
 		TableLayoutPanel buttonsPanel = BuildButtonsPanel();
-		root.Controls.Add(buttonsPanel, 0, 8);
+		root.Controls.Add(buttonsPanel, 0, 9);
 		root.SetColumnSpan(buttonsPanel, 5);
 
 		Controls.Add(root);
@@ -381,22 +395,19 @@ private Button MakeDetectButton()
 		{
 			Dock = DockStyle.Fill,
 			AutoSize = true,
-			ColumnCount = 4,
+			ColumnCount = 3,
 			RowCount = 1,
 			Margin = new Padding(0, 10, 0, 0)
 		};
 		p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
 		m_directButton = MakeButton("Open Directly", DirectButton_Click);
-		m_mergeButton = MakeButton("Merge && Open", MergeButton_Click);
-		m_cancelButton = MakeButton("Cancel", CancelButton_Click);
+		m_mergeButton = MakeButton("Merge", MergeButton_Click);
 
 		p.Controls.Add(m_directButton, 1, 0);
 		p.Controls.Add(m_mergeButton, 2, 0);
-		p.Controls.Add(m_cancelButton, 3, 0);
 		return p;
 	}
 
@@ -415,7 +426,7 @@ private Button MakeDetectButton()
 
 	private void UpdateDirectButtonEnabled()
 	{
-		m_directButton.Enabled = GetCheckedSources().Count == 1;
+		m_directButton.Enabled = GetCheckedSources().Count > 0;
 	}
 
 	private void BrowseButton_Click(object sender, EventArgs e)
@@ -432,21 +443,76 @@ private Button MakeDetectButton()
 	private void DirectButton_Click(object sender, EventArgs e)
 	{
 		List<SourceItem> checkedItems = GetCheckedSources();
-		if (checkedItems.Count != 1)
+		if (checkedItems.Count == 0)
 		{
 			return;
 		}
-		SourceItem item = checkedItems[0];
-		string path = Materialize(item);
-		if (path == null)
+		foreach (SourceItem item in checkedItems)
 		{
-			MessageBox.Show(this, "Could not open this source.", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Error);
-			return;
+			string path = GetOpenablePath(item);
+			if (path == null)
+			{
+				continue;
+			}
+			try
+			{
+				// Open each checked source in a separate new program instance.
+				ProcessStartInfo psi = new ProcessStartInfo(Application.ExecutablePath)
+				{
+					Arguments = "\"" + path + "\"",
+					UseShellExecute = true
+				};
+				Process.Start(psi);
+			}
+			catch (Exception)
+			{
+			}
 		}
-		SingleSourcePath = path;
 		CleanupTempFiles();
 		DialogResult = DialogResult.OK;
 		Close();
+	}
+
+	// Returns a path that can be handed to a new program instance and will still
+	// exist after this dialog closes (plain files use their own path; archives
+	// and gzip are extracted/decompressed to a persistent temp location).
+	private string GetOpenablePath(SourceItem item)
+	{
+		if (item.ArchivePath != null)
+		{
+			try
+			{
+				string dir = Path.Combine(Path.GetTempPath(), "TAT-Open-" + Guid.NewGuid().ToString("N"));
+				Directory.CreateDirectory(dir);
+				return ArchiveSupport.ExtractMemberToFile(item.ArchivePath, item.MemberName, dir);
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
+		if (item.IsGzip)
+		{
+			try
+			{
+				string dest = Path.Combine(Path.GetTempPath(), Path.GetFileNameWithoutExtension(item.FilePath) + ".txt");
+				using (TextReader input = ArchiveSupport.OpenGzip(item.FilePath))
+				using (StreamWriter writer = new StreamWriter(dest, false, new UTF8Encoding(true)))
+				{
+					string line;
+					while ((line = input.ReadLine()) != null)
+					{
+						writer.WriteLine(line);
+					}
+				}
+				return dest;
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
+		return item.FilePath;
 	}
 
 	private void MergeButton_Click(object sender, EventArgs e)
@@ -526,42 +592,6 @@ private Button MakeDetectButton()
 		return new StreamReader(item.FilePath, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
 	}
 
-	private string Materialize(SourceItem item)
-	{
-		if (item.ArchivePath != null)
-		{
-			string dest = ArchiveSupport.ExtractMemberToFile(item.ArchivePath, item.MemberName, m_tempDir);
-			if (dest != null)
-			{
-				m_tempFiles.Add(dest);
-			}
-			return dest;
-		}
-		if (item.IsGzip)
-		{
-			string dest = Path.Combine(m_tempDir, Path.GetFileNameWithoutExtension(item.FilePath) + ".txt");
-			try
-			{
-				using (TextReader input = ArchiveSupport.OpenGzip(item.FilePath))
-				using (StreamWriter writer = new StreamWriter(dest, false, new UTF8Encoding(true)))
-				{
-					string line;
-					while ((line = input.ReadLine()) != null)
-					{
-						writer.WriteLine(line);
-					}
-				}
-				m_tempFiles.Add(dest);
-				return dest;
-			}
-			catch (Exception)
-			{
-				return null;
-			}
-		}
-		return item.FilePath;
-	}
-
 	private void RunMerge(List<MergeSource> sources, MergeOptions options)
 	{
 		try
@@ -572,10 +602,18 @@ private Button MakeDetectButton()
 				m_statusLabel.Text = "Done.";
 				m_progressBar.Value = 100;
 				m_running = false;
-				MergedOutputPath = options.OutputPath;
 				CleanupTempFiles();
-				DialogResult = DialogResult.OK;
-				Close();
+				if (m_openAfterMergeCheck.Checked)
+				{
+					MergedOutputPath = options.OutputPath;
+					DialogResult = DialogResult.OK;
+					Close();
+				}
+				else
+				{
+					MessageBox.Show(this, "Merge completed successfully.\n\n" + options.OutputPath, "Merge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					Application.Exit();
+				}
 			});
 		}
 		catch (OperationCanceledException)
@@ -623,29 +661,15 @@ private Button MakeDetectButton()
 		m_running = running;
 		m_sourceList.Enabled = !running;
 		m_mergeButton.Enabled = true;
-		m_mergeButton.Text = running ? "Cancel" : "Merge && Open";
+		m_mergeButton.Text = running ? "Cancel" : "Merge";
 		m_directButton.Enabled = !running;
 		m_browseButton.Enabled = !running;
 		m_fromTextBox.Enabled = !running;
 		m_toTextBox.Enabled = !running;
 		m_timestampedCheck.Enabled = !running;
+		m_openAfterMergeCheck.Enabled = !running;
 		m_outputTextBox.Enabled = !running;
 		m_progressBar.Visible = running;
-		// The merge button toggles to "Cancel" while running, so hide the
-		// dedicated Cancel button to avoid two Cancel buttons.
-		m_cancelButton.Visible = !running;
-	}
-
-	private void CancelButton_Click(object sender, EventArgs e)
-	{
-		if (m_running)
-		{
-			m_cancelled = true;
-			return;
-		}
-		CleanupTempFiles();
-		DialogResult = DialogResult.Cancel;
-		Close();
 	}
 
 	private void CleanupTempFiles()
