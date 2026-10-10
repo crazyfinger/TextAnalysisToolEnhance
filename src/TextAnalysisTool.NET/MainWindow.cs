@@ -458,6 +458,10 @@ internal sealed class MainWindow : Form
 		m_fileSaveFiltersFilterIndex = 1;
 		m_preferencesExportFilterIndex = 1;
 		m_preferencesImportFilterIndex = 1;
+		// When opened from the command line / shell, a file is loaded before the
+		// window is shown, so the LoadLines Focus() has no effect. Ensure the main
+		// line list gets keyboard focus once the window is displayed.
+		Shown += (s, e) => m_lineCollectionDisplay.ListBox.Focus();
 	}
 
 	public void CreatePluginSettingsMenu(ArrayList plugins)
