@@ -27,6 +27,8 @@ internal sealed class SourceItem
 
 internal sealed class MergeDialog : Form
 {
+	private static bool s_staleOpenCleanupDone;
+
 	private readonly List<SourceItem> m_sources = new List<SourceItem>();
 
 	private readonly List<string> m_tempFiles = new List<string>();
@@ -34,6 +36,10 @@ internal sealed class MergeDialog : Form
 	private readonly string m_tempDir;
 
 	private CheckedListBox m_sourceList;
+
+	private CheckBox m_selectAllCheck;
+
+	private bool m_updatingChecks;
 
 	private TextBox m_fromTextBox;
 
@@ -67,6 +73,7 @@ internal sealed class MergeDialog : Form
 
 	public MergeDialog(IEnumerable<string> selectedFiles)
 	{
+		EnsureStaleOpenDirCleanup();
 		m_tempDir = Path.Combine(Path.GetTempPath(), "TAT-Merge-" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(m_tempDir);
 
@@ -110,36 +117,6 @@ internal sealed class MergeDialog : Form
 		m_toTextBox.Text = string.Empty;
 	}
 
-	private string DetectFirstTimestamp()
-	{
-		if (m_sources.Count == 0)
-		{
-			return null;
-		}
-		try
-		{
-			using (TextReader reader = OpenSource(m_sources[0]))
-			{
-				for (int i = 0; i < 200; i++)
-				{
-					string line = reader.ReadLine();
-					if (line == null)
-					{
-						break;
-					}
-					if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
-					{
-						return ts.ToString("MM-dd HH:mm:ss.fff");
-					}
-				}
-			}
-		}
-		catch (Exception)
-		{
-		}
-		return null;
-	}
-
 private Button MakeDetectButton()
 	{
 		Button b = new Button
@@ -157,17 +134,120 @@ private Button MakeDetectButton()
 
 	private void DetectButton_Click(object sender, EventArgs e)
 	{
-		string detected = DetectFirstTimestamp();
-		if (detected == null)
+		if (m_running)
 		{
 			return;
 		}
-		DateTime? from = ParseTime(detected);
-		if (from.HasValue)
+		List<SourceItem> checkedItems = GetCheckedSources();
+		if (checkedItems.Count == 0)
 		{
-			m_fromTextBox.Text = detected;
-			m_toTextBox.Text = from.Value.AddMinutes(10).ToString("MM-dd HH:mm:ss.fff");
+			ShowToast("Please select at least one source to detect a timestamp.");
+			return;
 		}
+		m_statusLabel.Text = "Detecting...";
+		m_detectButton.Enabled = false;
+		// Run on a background thread so extracting a large 7z member does not
+		// freeze the dialog.
+		Thread thread = new Thread(() =>
+		{
+			string detected = DetectFirstTimestamp(checkedItems);
+			BeginInvoke((MethodInvoker)delegate
+			{
+				m_detectButton.Enabled = true;
+				if (detected == null)
+				{
+					m_statusLabel.Text = "No timestamp found.";
+					MessageBox.Show(this, "Could not detect a timestamp in the selected sources.", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+				m_statusLabel.Text = "";
+				m_fromTextBox.Text = detected;
+				DateTime? from = ParseTime(detected);
+				if (from.HasValue)
+				{
+					m_toTextBox.Text = from.Value.AddMinutes(10).ToString("MM-dd HH:mm:ss.fff");
+				}
+			});
+		});
+		thread.IsBackground = true;
+		thread.Start();
+	}
+
+	private string DetectFirstTimestamp(List<SourceItem> sources)
+	{
+		foreach (SourceItem item in sources)
+		{
+			TextReader reader;
+			try
+			{
+				reader = OpenSource(item);
+			}
+			catch (Exception)
+			{
+				continue;
+			}
+			using (reader)
+			{
+				if (reader == null)
+				{
+					continue;
+				}
+				try
+				{
+					for (int i = 0; i < 100; i++)
+					{
+						string line = reader.ReadLine();
+						if (line == null)
+						{
+							break;
+						}
+						if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
+						{
+							return ts.ToString("MM-dd HH:mm:ss.fff");
+						}
+					}
+				}
+				catch (Exception)
+				{
+				}
+			}
+		}
+		return null;
+	}
+
+	// A lightweight, auto-dismissing toast notification shown near the source of
+	// the action.
+	private void ShowToast(string message)
+	{
+		Form toast = new Form
+		{
+			FormBorderStyle = FormBorderStyle.None,
+			StartPosition = FormStartPosition.Manual,
+			ShowInTaskbar = false,
+			TopMost = true,
+			AutoSize = true,
+			AutoSizeMode = AutoSizeMode.GrowAndShrink,
+			Padding = new Padding(14, 9, 14, 9),
+			BackColor = Color.FromArgb(255, 45, 45, 48)
+		};
+		Label lbl = new Label
+		{
+			Text = message,
+			ForeColor = Color.White,
+			AutoSize = true,
+			BackColor = Color.Transparent
+		};
+		toast.Controls.Add(lbl);
+		Point screen = m_detectButton.PointToScreen(new Point(m_detectButton.Width / 2 - 40, m_detectButton.Height + 6));
+		toast.Location = new Point(screen.X, screen.Y);
+		System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 1800 };
+		timer.Tick += (s, e) =>
+		{
+			timer.Stop();
+			toast.Close();
+		};
+		timer.Start();
+		toast.Show(this);
 	}
 
 	private void BuildSources(IEnumerable<string> selectedFiles)
@@ -213,6 +293,17 @@ private Button MakeDetectButton()
 				}
 				continue;
 			}
+			// Show top-level entries first, then nested ones.
+			members.Sort((a, b) =>
+			{
+				bool aTop = IsTopLevelMember(a);
+				bool bTop = IsTopLevelMember(b);
+				if (aTop != bTop)
+				{
+					return aTop ? -1 : 1;
+				}
+				return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+			});
 			foreach (string member in members)
 			{
 				string tag = Path.GetFileName(member);
@@ -225,10 +316,15 @@ private Button MakeDetectButton()
 					ArchivePath = file,
 					MemberName = member,
 					SourceTag = tag,
-					DisplayName = file + "  ::  " + member
+					DisplayName = member
 				});
 			}
 		}
+	}
+
+	private static bool IsTopLevelMember(string member)
+	{
+		return member.IndexOf('/') < 0 && member.IndexOf('\\') < 0;
 	}
 
 	private void BuildUi()
@@ -262,10 +358,17 @@ private Button MakeDetectButton()
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-		// Row 0: Sources label
+		// Row 0: Sources label + select-all checkbox
 		Label listLabel = new Label { Text = "Sources:", AutoSize = true, Margin = new Padding(0, 0, 0, 6) };
 		root.Controls.Add(listLabel, 0, 0);
-		root.SetColumnSpan(listLabel, 5);
+		m_selectAllCheck = new CheckBox
+		{
+			Text = "Select all",
+			AutoSize = true,
+			Margin = new Padding(8, 0, 0, 6)
+		};
+		m_selectAllCheck.CheckedChanged += (s, e) => SelectAllChanged();
+		root.Controls.Add(m_selectAllCheck, 1, 0);
 
 		// Row 1: source list
 		m_sourceList = new CheckedListBox
@@ -273,13 +376,31 @@ private Button MakeDetectButton()
 			Dock = DockStyle.Fill,
 			CheckOnClick = true,
 			IntegralHeight = false,
+			HorizontalScrollbar = true,
 			Margin = new Padding(0, 4, 0, 10)
 		};
 		foreach (SourceItem s in m_sources)
 		{
-			m_sourceList.Items.Add(s.DisplayName, isChecked: true);
+			// Plain files and gzip are selected by default; archive members are
+			// left unchecked so a large archive isn't fully selected on open.
+			bool isChecked = s.ArchivePath == null;
+			m_sourceList.Items.Add(s.DisplayName, isChecked);
 		}
-		m_sourceList.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)UpdateDirectButtonEnabled);
+		int maxItemWidth = 0;
+		foreach (SourceItem s in m_sources)
+		{
+			int w = TextRenderer.MeasureText(s.DisplayName, m_sourceList.Font).Width;
+			if (w > maxItemWidth)
+			{
+				maxItemWidth = w;
+			}
+		}
+		m_sourceList.HorizontalExtent = maxItemWidth + 20;
+		m_sourceList.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)delegate
+		{
+			UpdateDirectButtonEnabled();
+			UpdateSelectAllState();
+		});
 		root.Controls.Add(m_sourceList, 0, 1);
 		root.SetColumnSpan(m_sourceList, 5);
 
@@ -360,6 +481,7 @@ private Button MakeDetectButton()
 		Controls.Add(root);
 
 		UpdateDirectButtonEnabled();
+		UpdateSelectAllState();
 	}
 
 	private static Label MakeLabel(string text)
@@ -427,6 +549,54 @@ private Button MakeDetectButton()
 	private void UpdateDirectButtonEnabled()
 	{
 		m_directButton.Enabled = GetCheckedSources().Count > 0;
+	}
+
+	private void SelectAllChanged()
+	{
+		if (m_updatingChecks)
+		{
+			return;
+		}
+		m_updatingChecks = true;
+		bool check = m_selectAllCheck.Checked;
+		for (int i = 0; i < m_sourceList.Items.Count; i++)
+		{
+			m_sourceList.SetItemChecked(i, check);
+		}
+		m_updatingChecks = false;
+	}
+
+	private void UpdateSelectAllState()
+	{
+		if (m_updatingChecks)
+		{
+			return;
+		}
+		m_updatingChecks = true;
+		int total = m_sourceList.Items.Count;
+		int checkedCount = 0;
+		for (int i = 0; i < total; i++)
+		{
+			if (m_sourceList.GetItemChecked(i))
+			{
+				checkedCount++;
+			}
+		}
+		CheckState state;
+		if (checkedCount == 0)
+		{
+			state = CheckState.Unchecked;
+		}
+		else if (checkedCount == total)
+		{
+			state = CheckState.Checked;
+		}
+		else
+		{
+			state = CheckState.Indeterminate;
+		}
+		m_selectAllCheck.CheckState = state;
+		m_updatingChecks = false;
 	}
 
 	private void BrowseButton_Click(object sender, EventArgs e)
@@ -696,6 +866,34 @@ private Button MakeDetectButton()
 			}
 		}
 		catch (IOException)
+		{
+		}
+	}
+
+	// Removes leftover "Open Directly" temp directories (TAT-Open-*) from
+	// previous runs. Runs once per process, before any new ones are created, so
+	// it never deletes a file a just-launched new instance still needs.
+	private static void EnsureStaleOpenDirCleanup()
+	{
+		if (s_staleOpenCleanupDone)
+		{
+			return;
+		}
+		s_staleOpenCleanupDone = true;
+		try
+		{
+			foreach (string dir in Directory.GetDirectories(Path.GetTempPath(), "TAT-Open-*"))
+			{
+				try
+				{
+					Directory.Delete(dir, recursive: true);
+				}
+				catch (IOException)
+				{
+				}
+			}
+		}
+		catch (Exception)
 		{
 		}
 	}
