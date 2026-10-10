@@ -55,6 +55,12 @@ internal sealed class MergeDialog : Form
 
 	private Button m_browseButton;
 
+	private string m_defaultOutputDir;
+
+	private bool m_outputManuallySet;
+
+	private bool m_updatingOutput;
+
 	private ProgressBar m_progressBar;
 
 	private Label m_statusLabel;
@@ -102,11 +108,90 @@ internal sealed class MergeDialog : Form
 			return;
 		}
 		SourceItem first = m_sources[0];
-		string dir = first.ArchivePath != null ? Path.GetDirectoryName(first.ArchivePath) : Path.GetDirectoryName(first.FilePath);
-		if (!string.IsNullOrEmpty(dir))
+		string sourcePath = first.ArchivePath ?? first.FilePath;
+		m_defaultOutputDir = Path.GetDirectoryName(sourcePath) ?? "";
+		ApplyDefaultOutputName(GetFirstCheckedSource() ?? first);
+	}
+
+	private SourceItem GetFirstCheckedSource()
+	{
+		for (int i = 0; i < m_sourceList.Items.Count; i++)
 		{
-			m_outputTextBox.Text = Path.Combine(dir, "merged.log");
+			if (m_sourceList.GetItemChecked(i) && i < m_sources.Count)
+			{
+				return m_sources[i];
+			}
 		}
+		return null;
+	}
+
+	// Re-applies the default output name from the first checked source. Does
+	// nothing once the user has set the output manually (e.g. via Browse).
+	private void RecomputeDefaultOutput()
+	{
+		if (m_outputManuallySet)
+		{
+			return;
+		}
+		SourceItem first = GetFirstCheckedSource();
+		if (first == null)
+		{
+			return;
+		}
+		ApplyDefaultOutputName(first);
+	}
+
+	private void ApplyDefaultOutputName(SourceItem item)
+	{
+		// For archive members use the member name inside the archive; otherwise
+		// the plain file name.
+		string sourceName = item.ArchivePath != null
+			? Path.GetFileNameWithoutExtension(item.MemberName)
+			: Path.GetFileNameWithoutExtension(item.FilePath);
+		string prefix = BuildOutputPrefix(sourceName);
+		m_updatingOutput = true;
+		m_outputTextBox.Text = Path.Combine(m_defaultOutputDir, prefix + "_merged.txt");
+		m_updatingOutput = false;
+	}
+
+	// Builds the default output name prefix from a source file name: take the
+	// text before the first '-' if present, then cap the width at 10 letters
+	// (English) / 5 CJK characters.
+	private static string BuildOutputPrefix(string name)
+	{
+		if (string.IsNullOrEmpty(name))
+		{
+			return "merged";
+		}
+		string p = name;
+		int dash = p.IndexOf('-');
+		if (dash >= 0)
+		{
+			p = p.Substring(0, dash);
+		}
+		p = p.Trim();
+		if (p.Length == 0)
+		{
+			return "merged";
+		}
+		const int maxWidth = 10; // in "English letter" units; CJK counts as 2
+		int width = 0;
+		int count = 0;
+		foreach (char c in p)
+		{
+			int w = c > 127 ? 2 : 1;
+			if (width + w > maxWidth)
+			{
+				break;
+			}
+			width += w;
+			count++;
+		}
+		if (count == 0)
+		{
+			return "merged";
+		}
+		return p.Substring(0, count);
 	}
 
 	private void SetDefaultTimeRange()
@@ -306,6 +391,10 @@ private Button MakeDetectButton()
 			});
 			foreach (string member in members)
 			{
+				if (!IsTextMember(member))
+				{
+					continue;
+				}
 				string tag = Path.GetFileName(member);
 				if (string.IsNullOrEmpty(tag))
 				{
@@ -325,6 +414,19 @@ private Button MakeDetectButton()
 	private static bool IsTopLevelMember(string member)
 	{
 		return member.IndexOf('/') < 0 && member.IndexOf('\\') < 0;
+	}
+
+	// Only archive members that look like text/log files are listed. Extension-less
+	// entries are kept too (many log files have no extension).
+	private static readonly HashSet<string> s_textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+	{
+		".txt", ".log", ".xml", ".json", ".csv", ".conf", ".config", ".cfg", ".properties", ".ini", ".trace", ".out", ".err"
+	};
+
+	private static bool IsTextMember(string member)
+	{
+		string ext = Path.GetExtension(member);
+		return string.IsNullOrEmpty(ext) || s_textExtensions.Contains(ext);
 	}
 
 	private void BuildUi()
@@ -400,6 +502,7 @@ private Button MakeDetectButton()
 		{
 			UpdateDirectButtonEnabled();
 			UpdateSelectAllState();
+			RecomputeDefaultOutput();
 		});
 		root.Controls.Add(m_sourceList, 0, 1);
 		root.SetColumnSpan(m_sourceList, 5);
@@ -450,6 +553,14 @@ private Button MakeDetectButton()
 			Margin = new Padding(6, 0, 0, 0)
 		};
 		m_browseButton.Click += BrowseButton_Click;
+		m_outputTextBox.TextChanged += (s, e) =>
+		{
+			// Any manual edit (typing or Browse) stops the default-name updates.
+			if (!m_updatingOutput)
+			{
+				m_outputManuallySet = true;
+			}
+		};
 		root.Controls.Add(MakeLabel("Output:"), 0, 6);
 		root.Controls.Add(m_outputTextBox, 1, 6);
 		root.SetColumnSpan(m_outputTextBox, 3);
