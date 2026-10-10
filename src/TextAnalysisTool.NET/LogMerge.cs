@@ -232,10 +232,10 @@ internal static class LogMergeEngine
 			lock (m_lock)
 			{
 				m_readBytes += delta;
-				int pct = m_totalBytes > 0 ? (int)(m_readBytes * 50 / (double)m_totalBytes) : 50;
-				if (pct > 50)
+				int pct = m_totalBytes > 0 ? (int)(m_readBytes * 90 / (double)m_totalBytes) : 90;
+				if (pct > 90)
 				{
-					pct = 50;
+					pct = 90;
 				}
 				if (pct != m_lastReported)
 				{
@@ -298,8 +298,8 @@ internal static class LogMergeEngine
 			}
 			SortProgress sortProgress = new SortProgress(totalSize, reportProgress);
 
-			// Unified monotonic progress: sorting occupies 0..50% (real byte
-			// progress), the k-way merge occupies 50..100% (real line progress).
+			// Unified monotonic progress: sorting occupies 0..90% (real byte
+			// progress), the k-way merge occupies 90..100% (real line progress).
 			// Nothing ever jumps backward.
 			Parallel.For(0, sources.Count, new ParallelOptions { MaxDegreeOfParallelism = MergeParallelism }, i =>
 			{
@@ -307,7 +307,7 @@ internal static class LogMergeEngine
 				Interlocked.Add(ref totalLines, results[i].LineCount);
 			});
 
-			throttled(50);
+			throttled(90);
 			GlobalMerge(results, options, totalLines, throttled, isCancelled);
 			throttled(100);
 		}
@@ -331,7 +331,9 @@ internal static class LogMergeEngine
 
 	private static void MergeSingleSource(MergeSource source, MergeOptions options, Action<int> reportProgress, Func<bool> isCancelled)
 	{
-		List<SortedItem> items = LoadAndSort(source, options, out long lineCount, null, 0);
+		long sourceSize = GetSourceSize(source);
+		SortProgress progress = new SortProgress(sourceSize, reportProgress);
+		List<SortedItem> items = LoadAndSort(source, options, out long lineCount, progress, sourceSize);
 		int total = items.Count;
 		using (StreamWriter writer = new StreamWriter(options.OutputPath, false, new UTF8Encoding(true), StreamBufferSize))
 		{
@@ -352,11 +354,18 @@ internal static class LogMergeEngine
 				}
 				if (total > 0)
 				{
-					int pct = Math.Min(99, (int)(written * 100 / (double)total));
+					int pct = (int)(90 + written * 10 / (double)total);
+					if (pct > 100)
+					{
+						pct = 100;
+					}
 					reportProgress?.Invoke(pct);
 				}
 			}
 		}
+		// Report completion even when the time filter dropped lines (written < total),
+		// so the progress bar reaches 100 before the dialog closes.
+		reportProgress?.Invoke(100);
 	}
 
 	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize)
@@ -691,7 +700,7 @@ internal static class LogMergeEngine
 					// reaches 100 even when the time filter drops some lines.
 					if (totalLines > 0)
 					{
-						int pct = (int)(50 + processed * 50 / (double)totalLines);
+						int pct = (int)(90 + processed * 10 / (double)totalLines);
 						if (pct > 100)
 						{
 							pct = 100;

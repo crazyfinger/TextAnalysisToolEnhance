@@ -73,7 +73,11 @@ internal sealed class MergeDialog : Form
 		MaximizeBox = false;
 		ShowInTaskbar = false;
 		FormBorderStyle = FormBorderStyle.FixedDialog;
-		ClientSize = new Size(560, 440);
+		ClientSize = new Size(660, 560);
+
+		Font = new Font("Microsoft Sans Serif", 9f, FontStyle.Regular, GraphicsUnit.Point, 0);
+		AutoScaleDimensions = new SizeF(120f, 120f);
+		AutoScaleMode = AutoScaleMode.Dpi;
 
 		BuildSources(selectedFiles);
 		BuildUi();
@@ -194,73 +198,154 @@ internal sealed class MergeDialog : Form
 
 	private void BuildUi()
 	{
-		int margin = 10;
-		int rowH = 26;
+		int pad = 12;
 
-		Label listLabel = new Label { Text = "Sources:", AutoSize = true, Location = new Point(margin, margin) };
-		Controls.Add(listLabel);
+		TableLayoutPanel root = new TableLayoutPanel
+		{
+			Dock = DockStyle.Fill,
+			ColumnCount = 3,
+			RowCount = 9,
+			Padding = new Padding(pad),
+			Margin = Padding.Empty
+		};
+		// col0 = labels, col1 = editable controls, col2 = browse button
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
+		// Row 0: Sources label
+		Label listLabel = new Label { Text = "Sources:", AutoSize = true, Margin = new Padding(0, 0, 0, 6) };
+		root.Controls.Add(listLabel, 0, 0);
+		root.SetColumnSpan(listLabel, 3);
+
+		// Row 1: source list
 		m_sourceList = new CheckedListBox
 		{
-			Location = new Point(margin, margin + 20),
-			Size = new Size(ClientSize.Width - 2 * margin, 190),
+			Dock = DockStyle.Fill,
 			CheckOnClick = true,
-			IntegralHeight = false
+			IntegralHeight = false,
+			Margin = new Padding(0, 4, 0, 10)
 		};
 		foreach (SourceItem s in m_sources)
 		{
 			m_sourceList.Items.Add(s.DisplayName, isChecked: true);
 		}
 		m_sourceList.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)UpdateDirectButtonEnabled);
-		Controls.Add(m_sourceList);
+		root.Controls.Add(m_sourceList, 0, 1);
+		root.SetColumnSpan(m_sourceList, 3);
 
-		int y = m_sourceList.Bottom + 10;
+		// Rows 2 & 3: From / To
+		m_fromTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 0, 2) };
+		m_toTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 0, 2) };
+		root.Controls.Add(MakeLabel("From:"), 0, 2);
+		root.Controls.Add(m_fromTextBox, 1, 2);
+		root.Controls.Add(MakeLabel("To:"), 0, 3);
+		root.Controls.Add(m_toTextBox, 1, 3);
 
-		m_fromTextBox = AddLabeledTextBox("From:", y, "MM-dd HH:mm:ss.SSS (optional)");
-		m_toTextBox = AddLabeledTextBox("To:", y + rowH, "MM-dd HH:mm:ss.SSS (optional)");
+		// Row 4: checkbox
+		m_timestampedCheck = new CheckBox
+		{
+			Text = "Only merge lines that have a timestamp",
+			Checked = true,
+			AutoSize = true,
+			Margin = new Padding(0, 8, 0, 2)
+		};
+		root.Controls.Add(m_timestampedCheck, 0, 4);
+		root.SetColumnSpan(m_timestampedCheck, 3);
 
-		y += 2 * rowH + 6;
-		m_timestampedCheck = new CheckBox { Text = "Only merge lines that have a timestamp", Checked = true, AutoSize = true, Location = new Point(margin, y) };
-		Controls.Add(m_timestampedCheck);
+		// Row 5: Output
+		m_outputTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 10, 2) };
+		m_browseButton = MakeButton("Browse...", BrowseButton_Click);
+		root.Controls.Add(MakeLabel("Output:"), 0, 5);
+		root.Controls.Add(m_outputTextBox, 1, 5);
+		root.Controls.Add(m_browseButton, 2, 5);
 
-		y += 26;
-		Label outLabel = new Label { Text = "Output:", AutoSize = true, Location = new Point(margin, y + 3) };
-		Controls.Add(outLabel);
-		m_outputTextBox = new TextBox { Location = new Point(margin + 52, y), Width = 360 };
-		Controls.Add(m_outputTextBox);
-		m_browseButton = new Button { Text = "Browse...", Location = new Point(m_outputTextBox.Right + 6, y - 2), Width = 76 };
-		m_browseButton.Click += BrowseButton_Click;
-		Controls.Add(m_browseButton);
+		// Row 6: progress
+		m_progressBar = new ProgressBar
+		{
+			Dock = DockStyle.Fill,
+			MinimumSize = new Size(0, 18),
+			Minimum = 0,
+			Maximum = 100,
+			Margin = new Padding(0, 12, 0, 2),
+			Visible = false
+		};
+		root.Controls.Add(m_progressBar, 0, 6);
+		root.SetColumnSpan(m_progressBar, 3);
 
-		y += rowH + 4;
-		m_progressBar = new ProgressBar { Location = new Point(margin, y), Width = ClientSize.Width - 2 * margin, Height = 18, Minimum = 0, Maximum = 100 };
-		Controls.Add(m_progressBar);
-		m_statusLabel = new Label { Text = "", AutoSize = true, Location = new Point(margin, y + 21) };
-		Controls.Add(m_statusLabel);
+		// Row 7: status
+		m_statusLabel = new Label { Text = "", AutoSize = true, Margin = new Padding(0, 2, 0, 4) };
+		root.Controls.Add(m_statusLabel, 0, 7);
+		root.SetColumnSpan(m_statusLabel, 3);
 
-		int buttonY = ClientSize.Height - 40;
-		m_cancelButton = new Button { Text = "Cancel", Location = new Point(ClientSize.Width - 92, buttonY), Width = 80 };
-		m_cancelButton.Click += CancelButton_Click;
-		Controls.Add(m_cancelButton);
-		m_mergeButton = new Button { Text = "Merge && Open", Location = new Point(m_cancelButton.Left - 118, buttonY), Width = 110 };
-		m_mergeButton.Click += MergeButton_Click;
-		Controls.Add(m_mergeButton);
-		m_directButton = new Button { Text = "Open Directly", Location = new Point(m_mergeButton.Left - 106, buttonY), Width = 100 };
-		m_directButton.Click += DirectButton_Click;
-		Controls.Add(m_directButton);
+		// Row 8: buttons
+		TableLayoutPanel buttonsPanel = BuildButtonsPanel();
+		root.Controls.Add(buttonsPanel, 0, 8);
+		root.SetColumnSpan(buttonsPanel, 3);
+
+		Controls.Add(root);
 
 		UpdateDirectButtonEnabled();
 	}
 
-	private TextBox AddLabeledTextBox(string label, int y, string placeholder)
+	private static Label MakeLabel(string text)
 	{
-		int margin = 10;
-		Label l = new Label { Text = label, AutoSize = true, Location = new Point(margin, y + 3) };
-		Controls.Add(l);
-		TextBox tb = new TextBox { Location = new Point(margin + 52, y), Width = 220 };
-		tb.TextChanged += (s, e) => { };
-		Controls.Add(tb);
-		return tb;
+		return new Label
+		{
+			Text = text,
+			AutoSize = true,
+			Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
+			Margin = new Padding(0, 2, 0, 4)
+		};
+	}
+
+	private static Button MakeButton(string text, EventHandler onClick)
+	{
+		Button b = new Button
+		{
+			Text = text,
+			AutoSize = true,
+			MinimumSize = new Size(88, 32),
+			Padding = new Padding(14, 5, 14, 5),
+			UseVisualStyleBackColor = true,
+			Margin = new Padding(6, 0, 6, 0)
+		};
+		b.Click += onClick;
+		return b;
+	}
+
+	private TableLayoutPanel BuildButtonsPanel()
+	{
+		TableLayoutPanel p = new TableLayoutPanel
+		{
+			Dock = DockStyle.Fill,
+			AutoSize = true,
+			ColumnCount = 4,
+			RowCount = 1,
+			Margin = new Padding(0, 10, 0, 0)
+		};
+		p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+		m_directButton = MakeButton("Open Directly", DirectButton_Click);
+		m_mergeButton = MakeButton("Merge && Open", MergeButton_Click);
+		m_cancelButton = MakeButton("Cancel", CancelButton_Click);
+
+		p.Controls.Add(m_directButton, 1, 0);
+		p.Controls.Add(m_mergeButton, 2, 0);
+		p.Controls.Add(m_cancelButton, 3, 0);
+		return p;
 	}
 
 	private List<SourceItem> GetCheckedSources()
@@ -433,6 +518,7 @@ internal sealed class MergeDialog : Form
 			BeginInvoke((MethodInvoker)delegate
 			{
 				m_statusLabel.Text = "Done.";
+				m_progressBar.Value = 100;
 				m_running = false;
 				MergedOutputPath = options.OutputPath;
 				CleanupTempFiles();
@@ -492,6 +578,7 @@ internal sealed class MergeDialog : Form
 		m_toTextBox.Enabled = !running;
 		m_timestampedCheck.Enabled = !running;
 		m_outputTextBox.Enabled = !running;
+		m_progressBar.Visible = running;
 		// The merge button toggles to "Cancel" while running, so hide the
 		// dedicated Cancel button to avoid two Cancel buttons.
 		m_cancelButton.Visible = !running;
