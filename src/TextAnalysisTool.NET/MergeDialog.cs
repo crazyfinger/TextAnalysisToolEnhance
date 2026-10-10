@@ -38,6 +38,8 @@ internal sealed class MergeDialog : Form
 
 	private TextBox m_toTextBox;
 
+	private Button m_detectButton;
+
 	private CheckBox m_timestampedCheck;
 
 	private TextBox m_outputTextBox;
@@ -101,38 +103,70 @@ internal sealed class MergeDialog : Form
 
 	private void SetDefaultTimeRange()
 	{
-		string detected = null;
-		if (m_sources.Count > 0)
+		// Leave the time range empty by default. Detection is done on demand by
+		// the "Detect Time" button (see DetectButton_Click).
+		m_fromTextBox.Text = string.Empty;
+		m_toTextBox.Text = string.Empty;
+	}
+
+	private string DetectFirstTimestamp()
+	{
+		if (m_sources.Count == 0)
 		{
-			try
+			return null;
+		}
+		try
+		{
+			using (TextReader reader = OpenSource(m_sources[0]))
 			{
-				using (TextReader reader = OpenSource(m_sources[0]))
+				for (int i = 0; i < 200; i++)
 				{
-					for (int i = 0; i < 200; i++)
+					string line = reader.ReadLine();
+					if (line == null)
 					{
-						string line = reader.ReadLine();
-						if (line == null)
-						{
-							break;
-						}
-						if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
-						{
-							detected = ts.ToString("MM-dd HH:mm:ss.fff");
-							break;
-						}
+						break;
+					}
+					if (LogTimestampParser.TryParsePrefix(line, out DateTime ts, out int prefix))
+					{
+						return ts.ToString("MM-dd HH:mm:ss.fff");
 					}
 				}
 			}
-			catch (Exception)
-			{
-			}
 		}
-		// Pre-fill 'From' with the first timestamp found in the first source so
-		// the range starts where the log data begins. If none is found, leave it
-		// empty (no time filtering). Never fall back to "today" -- that would
-		// drop all lines from past-dated logs.
-		m_fromTextBox.Text = detected ?? string.Empty;
-		m_toTextBox.Text = string.Empty;
+		catch (Exception)
+		{
+		}
+		return null;
+	}
+
+private Button MakeDetectButton()
+	{
+		Button b = new Button
+		{
+			Text = "Detect Time",
+			AutoSize = true,
+			Padding = new Padding(8, 5, 8, 5),
+			UseVisualStyleBackColor = true,
+			Margin = new Padding(10, 0, 0, 0),
+			Anchor = AnchorStyles.None
+		};
+		b.Click += DetectButton_Click;
+		return b;
+	}
+
+	private void DetectButton_Click(object sender, EventArgs e)
+	{
+		string detected = DetectFirstTimestamp();
+		if (detected == null)
+		{
+			return;
+		}
+		DateTime? from = ParseTime(detected);
+		if (from.HasValue)
+		{
+			m_fromTextBox.Text = detected;
+			m_toTextBox.Text = from.Value.AddMinutes(10).ToString("MM-dd HH:mm:ss.fff");
+		}
 	}
 
 	private void BuildSources(IEnumerable<string> selectedFiles)
@@ -203,14 +237,17 @@ internal sealed class MergeDialog : Form
 		TableLayoutPanel root = new TableLayoutPanel
 		{
 			Dock = DockStyle.Fill,
-			ColumnCount = 3,
+			ColumnCount = 5,
 			RowCount = 9,
 			Padding = new Padding(pad),
 			Margin = Padding.Empty
 		};
-		// col0 = labels, col1 = editable controls, col2 = browse button
+		// col0 = labels, col1 = time textboxes, col2 = "+10m" button,
+		// col3 = output textbox, col4 = browse button
 		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-		root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
 		root.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 		root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -225,7 +262,7 @@ internal sealed class MergeDialog : Form
 		// Row 0: Sources label
 		Label listLabel = new Label { Text = "Sources:", AutoSize = true, Margin = new Padding(0, 0, 0, 6) };
 		root.Controls.Add(listLabel, 0, 0);
-		root.SetColumnSpan(listLabel, 3);
+		root.SetColumnSpan(listLabel, 5);
 
 		// Row 1: source list
 		m_sourceList = new CheckedListBox
@@ -241,13 +278,16 @@ internal sealed class MergeDialog : Form
 		}
 		m_sourceList.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)UpdateDirectButtonEnabled);
 		root.Controls.Add(m_sourceList, 0, 1);
-		root.SetColumnSpan(m_sourceList, 3);
+		root.SetColumnSpan(m_sourceList, 5);
 
 		// Rows 2 & 3: From / To
-		m_fromTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 0, 2) };
-		m_toTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 0, 2) };
+		m_fromTextBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 28, Margin = new Padding(10, 0, 0, 0) };
+		m_toTextBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 28, Margin = new Padding(10, 0, 0, 0) };
+		m_detectButton = MakeDetectButton();
 		root.Controls.Add(MakeLabel("From:"), 0, 2);
 		root.Controls.Add(m_fromTextBox, 1, 2);
+		root.Controls.Add(m_detectButton, 2, 2);
+		root.SetRowSpan(m_detectButton, 2);
 		root.Controls.Add(MakeLabel("To:"), 0, 3);
 		root.Controls.Add(m_toTextBox, 1, 3);
 
@@ -260,14 +300,25 @@ internal sealed class MergeDialog : Form
 			Margin = new Padding(0, 8, 0, 2)
 		};
 		root.Controls.Add(m_timestampedCheck, 0, 4);
-		root.SetColumnSpan(m_timestampedCheck, 3);
+		root.SetColumnSpan(m_timestampedCheck, 5);
 
-		// Row 5: Output
-		m_outputTextBox = new TextBox { Dock = DockStyle.Fill, Margin = new Padding(10, 2, 10, 2) };
-		m_browseButton = MakeButton("Browse...", BrowseButton_Click);
+		// Row 5: Output (textbox spans the time box + button + output columns)
+		m_outputTextBox = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 28, Margin = new Padding(10, 0, 10, 0) };
+		m_browseButton = new Button
+		{
+			Text = "Browse",
+			AutoSize = true,
+			MinimumSize = new Size(88, 32),
+			Padding = new Padding(14, 2, 14, 2),
+			Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Bottom,
+			UseVisualStyleBackColor = true,
+			Margin = new Padding(6, 0, 0, 0)
+		};
+		m_browseButton.Click += BrowseButton_Click;
 		root.Controls.Add(MakeLabel("Output:"), 0, 5);
 		root.Controls.Add(m_outputTextBox, 1, 5);
-		root.Controls.Add(m_browseButton, 2, 5);
+		root.SetColumnSpan(m_outputTextBox, 3);
+		root.Controls.Add(m_browseButton, 4, 5);
 
 		// Row 6: progress
 		m_progressBar = new ProgressBar
@@ -280,17 +331,17 @@ internal sealed class MergeDialog : Form
 			Visible = false
 		};
 		root.Controls.Add(m_progressBar, 0, 6);
-		root.SetColumnSpan(m_progressBar, 3);
+		root.SetColumnSpan(m_progressBar, 5);
 
 		// Row 7: status
 		m_statusLabel = new Label { Text = "", AutoSize = true, Margin = new Padding(0, 2, 0, 4) };
 		root.Controls.Add(m_statusLabel, 0, 7);
-		root.SetColumnSpan(m_statusLabel, 3);
+		root.SetColumnSpan(m_statusLabel, 5);
 
 		// Row 8: buttons
 		TableLayoutPanel buttonsPanel = BuildButtonsPanel();
 		root.Controls.Add(buttonsPanel, 0, 8);
-		root.SetColumnSpan(buttonsPanel, 3);
+		root.SetColumnSpan(buttonsPanel, 5);
 
 		Controls.Add(root);
 
@@ -302,9 +353,10 @@ internal sealed class MergeDialog : Form
 		return new Label
 		{
 			Text = text,
-			AutoSize = true,
-			Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
-			Margin = new Padding(0, 2, 0, 4)
+			AutoSize = false,
+			Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Bottom,
+			TextAlign = ContentAlignment.MiddleLeft,
+			Margin = Padding.Empty
 		};
 	}
 
