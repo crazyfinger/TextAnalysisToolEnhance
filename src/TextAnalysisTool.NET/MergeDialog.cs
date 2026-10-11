@@ -345,7 +345,7 @@ private Button MakeDetectButton()
 				{
 					FilePath = file,
 					SourceTag = ArchiveSupport.GetSourceName(file),
-					DisplayName = file
+					DisplayName = GetDisplayedFileName(file, Path.GetFileName(file))
 				});
 				continue;
 			}
@@ -357,7 +357,7 @@ private Button MakeDetectButton()
 					FilePath = file,
 					IsGzip = true,
 					SourceTag = ArchiveSupport.GetSourceName(file),
-					DisplayName = file
+					DisplayName = GetDisplayedFileName(file, Path.GetFileName(file))
 				});
 				continue;
 			}
@@ -405,7 +405,7 @@ private Button MakeDetectButton()
 					ArchivePath = file,
 					MemberName = member,
 					SourceTag = tag,
-					DisplayName = member
+					DisplayName = GetDisplayedFileName(member, Path.GetFileName(member))
 				});
 			}
 		}
@@ -427,6 +427,32 @@ private Button MakeDetectButton()
 	{
 		string ext = Path.GetExtension(member);
 		return string.IsNullOrEmpty(ext) || s_textExtensions.Contains(ext);
+	}
+
+	// Applies the same File Name Display Style rules as the main window title bar
+	// (see CTextAnalysisTool.GetDisplayedFileName) to the names shown in the
+	// source list.
+	private static string GetDisplayedFileName(string fileFullPath, string fileName)
+	{
+		string text = fileName;
+		if (Settings.FileNameDisplayStyle == FileNameDisplayStyle.FullPath)
+		{
+			text = fileFullPath;
+		}
+		else if (Settings.FileNameDisplayStyle == FileNameDisplayStyle.RetainPathEnd)
+		{
+			int num = Math.Min(fileFullPath.Length, Settings.FileNameDisplayLength);
+			text = fileFullPath.Substring(fileFullPath.Length - num);
+			if (num < fileFullPath.Length)
+			{
+				text = "..." + text;
+			}
+		}
+		else if (Settings.FileNameDisplayStyle == FileNameDisplayStyle.RetainPathRootAndEnd)
+		{
+			text = fileFullPath.ShortenPath(Settings.FileNameDisplayLength);
+		}
+		return text;
 	}
 
 	private void BuildUi()
@@ -488,16 +514,9 @@ private Button MakeDetectButton()
 			bool isChecked = s.ArchivePath == null;
 			m_sourceList.Items.Add(s.DisplayName, isChecked);
 		}
-		int maxItemWidth = 0;
-		foreach (SourceItem s in m_sources)
-		{
-			int w = TextRenderer.MeasureText(s.DisplayName, m_sourceList.Font).Width;
-			if (w > maxItemWidth)
-			{
-				maxItemWidth = w;
-			}
-		}
-		m_sourceList.HorizontalExtent = maxItemWidth + 20;
+		// Horizontal extent is set in OnShown from the native auto-computed value
+		// (see UpdateHorizontalExtent): it is DPI-correct and matches the real
+		// text width, which TextRenderer.MeasureText under-measures.
 		m_sourceList.ItemCheck += (s, e) => BeginInvoke((MethodInvoker)delegate
 		{
 			UpdateDirectButtonEnabled();
@@ -1033,5 +1052,37 @@ private Button MakeDetectButton()
 			return;
 		}
 		base.OnFormClosing(e);
+	}
+
+	// The CheckedListBox's horizontal extent must be set AFTER AutoScaleMode.Dpi
+	// has scaled the fonts/controls: the extent is an absolute pixel value that
+	// auto-scaling does NOT adjust, so measuring it during construction leaves the
+	// text tail unreachable on high-DPI displays. The check box drawn to the left
+	// of each item is also not included in the native extent, so its width (the
+	// row height) is added too. The authoritative text width is the value the
+	// native control auto-computes (LB_GETHORIZONTALEXTENT), which accounts for
+	// GDI text metrics that TextRenderer.MeasureText under-measures.
+	protected override void OnShown(EventArgs e)
+	{
+		base.OnShown(e);
+		UpdateHorizontalExtent();
+	}
+
+	private void UpdateHorizontalExtent()
+	{
+		int textWidth = ControlExtensions.SendMessage(m_sourceList.Handle, 0x0193, 0, 0);
+		if (textWidth <= 0)
+		{
+			foreach (SourceItem s in m_sources)
+			{
+				int w = TextRenderer.MeasureText(s.DisplayName, m_sourceList.Font).Width;
+				if (w > textWidth)
+				{
+					textWidth = w;
+				}
+			}
+		}
+		int checkBoxAllowance = Math.Max(24, m_sourceList.ItemHeight * 2);
+		m_sourceList.HorizontalExtent = textWidth + checkBoxAllowance;
 	}
 }
