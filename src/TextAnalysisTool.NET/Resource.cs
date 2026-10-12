@@ -8,11 +8,11 @@ internal sealed class Resource
 {
 	public static readonly Icon ApplicationIcon;
 
-	public const string AboutCopyright = "Copyright © 2000-2025\r\nby David L. A. Anson\r\nDavidAns@Microsoft.com\r\n\r\nProtected by United States\r\npatents 6,963,878 and 7,146,379.";
+	public const string AboutCopyright = "Copyright © 2000-2026\r\nby David L. A. Anson & crazyfinger\r\n\r\nEnhanced with AI assistance\r\nfor high-performance log analysis.";
 
 	public const string AboutTitle = "About {0}";
 
-	public const string ApplicationName = "TextAnalysisTool.NET";
+	public const string ApplicationName = "TextAnalysisToolEnhance";
 
 	public const string ArgumentUnrecognized = "The following command line argument is not recognized and will be ignored: {0}.";
 
@@ -348,7 +348,7 @@ internal sealed class Resource
 
 	public const string TruncatedLineFormat = "{0} ... {1}";
 
-	public const string TruncatedLineMessage = "[TextAnalysisTool.NET could not display the whole line. Filtering, copying, and searching are unaffected.]";
+	public const string TruncatedLineMessage = "[TextAnalysisToolEnhance could not display the whole line. Filtering, copying, and searching are unaffected.]";
 
 	public const string UnexpectedError = "An unexpected error occurred: {0}.";
 

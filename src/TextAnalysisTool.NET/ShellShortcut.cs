@@ -7,7 +7,7 @@ namespace TextAnalysisTool.NET;
 
 internal static class ShellShortcut
 {
-	private const string ShortcutFileName = "TextAnalysisTool.NET.lnk";
+	private const string ShortcutFileName = "TextAnalysisToolEnhance.lnk";
 
 	public static string GetSendToShortcutPath()
 	{
@@ -47,7 +47,7 @@ internal static class ShellShortcut
 			}
 			shortcutType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { exePath });
 			shortcutType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { Path.GetDirectoryName(exePath) });
-			shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { "Open or merge text files and archives in TextAnalysisTool.NET" });
+			shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { "Open or merge text files and archives in TextAnalysisToolEnhance" });
 			shortcutType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
 			return true;
 		}

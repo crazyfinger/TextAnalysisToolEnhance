@@ -207,26 +207,27 @@ internal class OptionsDialog : Form
 
 	private void SendTo_Click(object sender, EventArgs e)
 	{
+		string appName = Resource.ApplicationName;
 		if (ShellShortcut.IsInSendTo())
 		{
 			if (ShellShortcut.RemoveFromSendTo())
 			{
-				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
+				CTextAnalysisTool.ShowMessageBox($"{appName} has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
 			}
 			else
 			{
-				CTextAnalysisTool.ShowMessageBox("Failed to remove TextAnalysisTool.NET from the 'Send to' menu.", MessageBoxIcon.Hand);
+				CTextAnalysisTool.ShowMessageBox($"Failed to remove {appName} from the 'Send to' menu.", MessageBoxIcon.Hand);
 			}
 		}
 		else
 		{
 			if (ShellShortcut.AddToSendTo())
 			{
-				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> TextAnalysisTool.NET' to open or merge them.", MessageBoxIcon.Information);
+				CTextAnalysisTool.ShowMessageBox($"{appName} has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> {appName}' to open or merge them.", MessageBoxIcon.Information);
 			}
 			else
 			{
-				CTextAnalysisTool.ShowMessageBox("Failed to add TextAnalysisTool.NET to the 'Send to' menu.", MessageBoxIcon.Hand);
+				CTextAnalysisTool.ShowMessageBox($"Failed to add {appName} to the 'Send to' menu.", MessageBoxIcon.Hand);
 			}
 		}
 	}

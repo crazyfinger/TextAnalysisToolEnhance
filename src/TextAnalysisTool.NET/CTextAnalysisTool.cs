@@ -854,12 +854,12 @@ internal sealed class CTextAnalysisTool : IDisposable
 
 	public static void ShowMessageBox(string message, MessageBoxIcon icon)
 	{
-		MessageBox.Show(message, "TextAnalysisTool.NET", MessageBoxButtons.OK, icon);
+		MessageBox.Show(message, Resource.ApplicationName, MessageBoxButtons.OK, icon);
 	}
 
 	public static DialogResult ShowMessageBox(string message, MessageBoxIcon icon, MessageBoxButtons buttons)
 	{
-		return MessageBox.Show(message, "TextAnalysisTool.NET", buttons, icon);
+		return MessageBox.Show(message, Resource.ApplicationName, buttons, icon);
 	}
 
 	public static void ShowMessageBox(string message, string details, MessageBoxIcon icon)

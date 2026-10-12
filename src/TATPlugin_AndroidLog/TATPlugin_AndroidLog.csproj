@@ -13,8 +13,8 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
-    <Reference Include="TextAnalysisTool.NET">
-      <HintPath>..\..\TextAnalysisTool.NET.exe</HintPath>
+    <Reference Include="TextAnalysisToolEnhance">
+      <HintPath>..\..\TextAnalysisToolEnhance.exe</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

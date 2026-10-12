@@ -13,7 +13,7 @@ generator = ""        # e.g. "Ninja"; empty = CMake's default
 options = []          # extra -D options, e.g. ["-DUD_WITH_SDL=OFF"]
 
 [run]
-exe = "TextAnalysisTool.NET.exe"
+exe = "TextAnalysisToolEnhance.exe"
 args = []
 cwd = "."
 original = "data/TextAnalysisTool.NET.exe"

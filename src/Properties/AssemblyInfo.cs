@@ -4,14 +4,15 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 
-[assembly: AssemblyTitle("TextAnalysisTool.NET")]
-[assembly: AssemblyDescription("A program designed to excel at viewing, searching, and navigating large files quickly and efficiently.")]
+[assembly: AssemblyTitle("TextAnalysisToolEnhance")]
+[assembly: AssemblyDescription("A high-performance tool designed to excel at viewing, searching, filtering, and merging large log files.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("David L. A. Anson")]
-[assembly: AssemblyProduct("TextAnalysisTool.NET")]
-[assembly: AssemblyCopyright("Copyright © 2000-2025 by David L. A. Anson")]
+[assembly: AssemblyCompany("crazyfinger")]
+[assembly: AssemblyProduct("TextAnalysisToolEnhance")]
+[assembly: AssemblyCopyright("Copyright © 2000-2026 by David L. A. Anson & crazyfinger")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyDelaySign(false)]
 [assembly: AssemblyKeyName("")]
 [assembly: CLSCompliant(true)]
-[assembly: AssemblyVersion("1.0.9456.32322")]
+[assembly: AssemblyVersion("1.0.9781.0")]
+[assembly: AssemblyFileVersion("2026.10.12.0")]

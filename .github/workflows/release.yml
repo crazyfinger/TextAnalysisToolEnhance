@@ -21,10 +21,14 @@ jobs:
           dotnet-version: '9.x'
 
       - name: Build Release
-        run: dotnet build src/TextAnalysisTool.NET.csproj -c Release
+        run: |
+          dotnet build src/TextAnalysisTool.NET.csproj -c Release
+          dotnet build src/TATPlugin_AndroidLog/TATPlugin_AndroidLog.csproj -c Release
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: TextAnalysisTool.NET.exe
+          files: |
+            TextAnalysisToolEnhance.exe
+            TATPlugin_AndroidLog.dll
           generate_release_notes: true

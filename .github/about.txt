@@ -1,0 +1,44 @@
+================================================================================
+TextAnalysisToolEnhance - GitHub About & Project Description
+================================================================================
+
+【Short Description (GitHub Repo Summary / One-liner, <= 350 chars)】:
+An AI-assisted, high-performance log analysis tool enhanced from TextAnalysisTool.NET. Specially optimized for Android and large-scale system logs with real-time Refine filtering, multi-source log merging & timestamp sorting, direct archive reading (.zip/.7z/.gz), marked lines window, line range filters, and smart AndroidLog color plugins.
+
+【中文一句话简介 (Repo 简介)】:
+TextAnalysisToolEnhance：基于 TextAnalysisTool.NET 在 AI 协作下重构增强的高性能日志分析工具。专为 Android 系统与海量日志分析深度优化，支持实时精炼过滤、多日志时间戳合并排序、压缩包直读、独立标记窗口、行号范围规则及 AndroidLog 调色插件。
+
+【Topics / 标签建议】:
+log-analysis, android-logs, logcat, bugreport, text-analysis-tool, ai-assisted, log-viewer, winforms, dotnet
+
+--------------------------------------------------------------------------------
+【About / 项目背景与详述】:
+--------------------------------------------------------------------------------
+
+1. 项目源起与协作方式 (Origin & AI Collaboration)
+本项目修改并演进自 David L. A. Anson 开发的经典开源工具 TextAnalysisTool.NET (v1.0.9456.32322)。
+在保留原版全部轻量、快速、正则过滤与标记特性的基础上，本项目是在先进 AI 编程助手（Gemini CLI）的深度协助与协同工程下，针对当代大规模系统开发排错场景完成的现代化重构与功能演进。
+
+2. 为什么特别适用于分析 Android 日志？ (Why it excels for Android Logs)
+Android 系统与嵌入式设备日常排查经常面临庞大的 Bugreport / Bug2Go 压缩包，内部包含多个独立缓冲区（main, system, events, crash, kernel 等），往往有以下痛点：
+- 痛点 1：必须先手动解压出几个大文件，传统工具无法直接读取；
+- 痛点 2：各缓冲区日志的时间戳相互错开，无法在单一视角按事件发生顺序串行复盘；
+- 痛点 3：日志行成千上万，几十个进程（PID）与组件（Tag）混杂成单调的黑白文本，关键链路极难追踪。
+
+TextAnalysisToolEnhance 针对上述痛点进行了靶向强化：
+- 压缩包一键直读：无需手动解压，直接打开或拖入 .zip / .7z / .gz 文件即可解析内部日志；
+- 多源时间戳并发归并：并发解析微秒级时间戳，自动按绝对时间升序交织合并为一个顺序文件，并自动打上 [source_tag] 染色标签；
+- Android 专属快选与色彩系统：右键点击任意 logcat 行自动识别 PID 与 Tag，支持内置 24 色高对比度鲜艳调色板（支持一致性哈希，确保同一 Tag 在整个分析流程中色彩始终恒定且对比强烈）；
+- 毫秒级精炼过滤 (Refine)：在庞大过滤结果之上按 Ctrl+E 输入关键字做 AND 级别的即时二次过滤，配合 Ctrl+K 瞬间清空，排查灵动自如；
+- 多选行区间排除：拖拽选中任意故障区间，右键一键生成“Hide Lines {min} to {max}”排除规则，迅速剪除死循环或无用刷屏行。
+
+3. 核心新增功能清单 (New Features Overview):
+- 精炼过滤 (Refine Filter, Ctrl+E / Ctrl+K)
+- 独立标记书签窗口 (Marked Lines Display)
+- 多日志合并排序与压缩包直读 (Open & Merge / Archive Support: .zip, .7z, .gz)
+- 增强型行号规则编辑与多选区间隐藏 (Line Number Range Filter)
+- AndroidLog 调色板与设置系统 (TATPlugin_AndroidLog)
+- Windows Explorer "发送到 (Send To)" 一键集成
+- 完备的命令行支持 (多文件、压缩包、@列表文件、/Line、/Filters 等)
+- 中英文内置使用指南自动自适应切换
+================================================================================

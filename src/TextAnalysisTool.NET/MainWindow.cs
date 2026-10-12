@@ -710,26 +710,27 @@ internal sealed class MainWindow : Form
 
 	private void HelpSendTo_Click(object sender, EventArgs e)
 	{
+		string appName = Resource.ApplicationName;
 		if (ShellShortcut.IsInSendTo())
 		{
 			if (ShellShortcut.RemoveFromSendTo())
 			{
-				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
+				CTextAnalysisTool.ShowMessageBox($"{appName} has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
 			}
 			else
 			{
-				CTextAnalysisTool.ShowMessageBox("Failed to remove TextAnalysisTool.NET from the 'Send to' menu.", MessageBoxIcon.Hand);
+				CTextAnalysisTool.ShowMessageBox($"Failed to remove {appName} from the 'Send to' menu.", MessageBoxIcon.Hand);
 			}
 		}
 		else
 		{
 			if (ShellShortcut.AddToSendTo())
 			{
-				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> TextAnalysisTool.NET' to open or merge them.", MessageBoxIcon.Information);
+				CTextAnalysisTool.ShowMessageBox($"{appName} has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> {appName}' to open or merge them.", MessageBoxIcon.Information);
 			}
 			else
 			{
-				CTextAnalysisTool.ShowMessageBox("Failed to add TextAnalysisTool.NET to the 'Send to' menu.", MessageBoxIcon.Hand);
+				CTextAnalysisTool.ShowMessageBox($"Failed to add {appName} to the 'Send to' menu.", MessageBoxIcon.Hand);
 			}
 		}
 	}
@@ -1102,20 +1103,43 @@ internal sealed class MainWindow : Form
 
 	private void HelpDocumentation_Click(object sender, EventArgs e)
 	{
-		if ((!m_textAnalysisTool.LinesLoaded && !m_textAnalysisTool.FiltersPresent) || DialogResult.OK == CTextAnalysisTool.ShowMessageBox(string.Format("{0} is about to replace the current lines and filters with lines from its documentation file and a few sample filters.\n\n(To preserve your current data: cancel this operation, open a new {0} window, and view the documentation file in that window.)", "TextAnalysisTool.NET"), MessageBoxIcon.Question, MessageBoxButtons.OKCancel))
+		bool isChinese = CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase)
+			|| CultureInfo.CurrentCulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
+
+		string appName = Resource.ApplicationName;
+		string confirmMsg = isChinese
+			? $"{appName} 即将使用其内置的使用指南与示例过滤器替换当前的日志行和过滤器。\n\n（如需保留当前数据：请取消此操作，开启新的 {appName} 窗口并在新窗口中查看指南。）"
+			: $"{appName} is about to replace the current lines and filters with lines from its documentation file and a few sample filters.\n\n(To preserve your current data: cancel this operation, open a new {appName} window, and view the documentation file in that window.)";
+
+		if ((!m_textAnalysisTool.LinesLoaded && !m_textAnalysisTool.FiltersPresent) || DialogResult.OK == CTextAnalysisTool.ShowMessageBox(confirmMsg, MessageBoxIcon.Question, MessageBoxButtons.OKCancel))
 		{
 			m_filterCollectionDisplay.FilterCollection.ReplaceAll(new Filter[0]);
-			m_textAnalysisTool.LoadLinesFromResourceStream("TextAnalysisTool.NET.txt");
+			string resourceName = isChinese ? "TextAnalysisTool.NET.zh-CN.txt" : "TextAnalysisTool.NET.txt";
+			m_textAnalysisTool.LoadLinesFromResourceStream(resourceName);
 			m_lineCollectionDisplay.ListBox.ShowOnlyFilteredLines = false;
 			m_lineCollectionDisplay.ListBox.MarkLineNumberRange(10, 27);
-			m_filterCollectionDisplay.FilterCollection.ReplaceAll(new Filter[5]
+			if (isChinese)
 			{
-				new MatchesTextFilter(enabled: false, excluding: false, Color.White, Color.Green, "Section:", caseSensitive: false, usesRegularExpression: false),
-				new MarkedFilter(enabled: false, excluding: false, Color.Empty, Color.Empty, 0),
-				new MatchesTextFilter(enabled: false, excluding: false, Color.DarkGreen, Color.LightGray, "TextAnalysisTool.NET", caseSensitive: false, usesRegularExpression: false),
-				new MatchesTextFilter(enabled: false, excluding: false, Color.DarkBlue, Color.Empty, "\\bplug.?ins?\\b", caseSensitive: true, usesRegularExpression: true),
-				new MatchesTextFilter(enabled: false, excluding: true, Color.Empty, Color.Empty, "the", caseSensitive: true, usesRegularExpression: false)
-			});
+				m_filterCollectionDisplay.FilterCollection.ReplaceAll(new Filter[5]
+				{
+					new MatchesTextFilter(enabled: false, excluding: false, Color.White, Color.Green, "章节:", caseSensitive: false, usesRegularExpression: false),
+					new MarkedFilter(enabled: false, excluding: false, Color.Empty, Color.Empty, 0),
+					new MatchesTextFilter(enabled: false, excluding: false, Color.DarkGreen, Color.LightGray, appName, caseSensitive: false, usesRegularExpression: false),
+					new MatchesTextFilter(enabled: false, excluding: false, Color.DarkBlue, Color.Empty, "\\b插件\\b", caseSensitive: true, usesRegularExpression: true),
+					new MatchesTextFilter(enabled: false, excluding: true, Color.Empty, Color.Empty, "的", caseSensitive: true, usesRegularExpression: false)
+				});
+			}
+			else
+			{
+				m_filterCollectionDisplay.FilterCollection.ReplaceAll(new Filter[5]
+				{
+					new MatchesTextFilter(enabled: false, excluding: false, Color.White, Color.Green, "Section:", caseSensitive: false, usesRegularExpression: false),
+					new MarkedFilter(enabled: false, excluding: false, Color.Empty, Color.Empty, 0),
+					new MatchesTextFilter(enabled: false, excluding: false, Color.DarkGreen, Color.LightGray, appName, caseSensitive: false, usesRegularExpression: false),
+					new MatchesTextFilter(enabled: false, excluding: false, Color.DarkBlue, Color.Empty, "\\bplug.?ins?\\b", caseSensitive: true, usesRegularExpression: true),
+					new MatchesTextFilter(enabled: false, excluding: true, Color.Empty, Color.Empty, "the", caseSensitive: true, usesRegularExpression: false)
+				});
+			}
 			m_textAnalysisTool.FilterCollection.ClearDirtyFlag();
 			m_lineCollectionDisplay.ListBox.Focus();
 		}
