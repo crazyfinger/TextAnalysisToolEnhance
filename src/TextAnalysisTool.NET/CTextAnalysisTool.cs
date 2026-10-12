@@ -265,14 +265,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 	{
 		if (ArchiveSupport.IsArchivePath(fileName))
 		{
-			if (m_mainWindow != null && m_mainWindow.Visible)
-			{
-				m_mainWindow.OpenOrMergeFiles(new string[] { fileName });
-			}
-			else if (m_mainWindow != null)
-			{
-				m_mainWindow.SetInitialFilesToOpenOrMerge(new string[] { fileName });
-			}
+			m_mainWindow.OpenOrMergeFiles(new string[] { fileName });
 			return;
 		}
 		LoadLines(LoadSource.File, fileName);
@@ -828,15 +821,29 @@ internal sealed class CTextAnalysisTool : IDisposable
 			}
 		}
 
-		if (inputFiles.Count == 1 && !ArchiveSupport.IsArchivePath(inputFiles[0]))
+		bool isMergeStartup = inputFiles.Count > 1 || (inputFiles.Count == 1 && ArchiveSupport.IsArchivePath(inputFiles[0]));
+		if (isMergeStartup)
+		{
+			using MergeDialog dialog = new MergeDialog(inputFiles.ToArray());
+			dialog.StartPosition = FormStartPosition.CenterScreen;
+			dialog.ShowInTaskbar = true;
+			if (dialog.ShowDialog() != DialogResult.OK)
+			{
+				return;
+			}
+			string targetFile = !string.IsNullOrEmpty(dialog.SingleSourcePath) ? dialog.SingleSourcePath : dialog.MergedOutputPath;
+			if (!string.IsNullOrEmpty(targetFile))
+			{
+				LoadLinesFromFile(targetFile);
+				m_mainWindow.UpdateRecentFiles(targetFile);
+				flag = true;
+			}
+		}
+		else if (inputFiles.Count == 1)
 		{
 			LoadLinesFromFile(inputFiles[0]);
 			m_mainWindow.UpdateRecentFiles(inputFiles[0]);
 			flag = true;
-		}
-		else if (inputFiles.Count > 0)
-		{
-			m_mainWindow.SetInitialFilesToOpenOrMerge(inputFiles.ToArray());
 		}
 		if (!flag && !flag2)
 		{

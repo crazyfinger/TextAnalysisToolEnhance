@@ -30,8 +30,6 @@ internal sealed class MainWindow : Form
 
 	private readonly FullyEnabledMenuItem m_menuHelpSendTo;
 
-	private string[] m_initialFilesToOpenOrMerge;
-
 	private readonly FullyEnabledMenuItem m_menuEditCopy;
 
 	private readonly FullyEnabledMenuItem m_menuEditCopyLegacy;
@@ -474,21 +472,8 @@ internal sealed class MainWindow : Form
 		m_preferencesImportFilterIndex = 1;
 		// When opened from the command line / shell, a file is loaded before the
 		// window is shown, so the LoadLines Focus() has no effect. Ensure the main
-		// line list gets keyboard focus once the window is displayed, or open the
-		// MergeDialog if multiple files or an archive were supplied.
-		Shown += (s, e) =>
-		{
-			if (m_initialFilesToOpenOrMerge != null && m_initialFilesToOpenOrMerge.Length > 0)
-			{
-				string[] files = m_initialFilesToOpenOrMerge;
-				m_initialFilesToOpenOrMerge = null;
-				BeginInvoke(new Action(() => OpenOrMergeFiles(files)));
-			}
-			else
-			{
-				m_lineCollectionDisplay.ListBox.Focus();
-			}
-		};
+		// line list gets keyboard focus once the window is displayed.
+		Shown += (s, e) => m_lineCollectionDisplay.ListBox.Focus();
 	}
 
 	public void CreatePluginSettingsMenu(ArrayList plugins)
@@ -683,11 +668,6 @@ internal sealed class MainWindow : Form
 			}
 			OpenOrMergeFiles(files);
 		}
-	}
-
-	public void SetInitialFilesToOpenOrMerge(string[] files)
-	{
-		m_initialFilesToOpenOrMerge = files;
 	}
 
 	public void OpenOrMergeFiles(string[] files)

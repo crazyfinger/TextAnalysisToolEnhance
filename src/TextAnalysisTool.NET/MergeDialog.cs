@@ -84,6 +84,7 @@ internal sealed class MergeDialog : Form
 		Directory.CreateDirectory(m_tempDir);
 
 		Text = "Open / Merge Logs";
+		Icon = Resource.ApplicationIcon;
 		StartPosition = FormStartPosition.CenterParent;
 		MinimizeBox = false;
 		MaximizeBox = false;
