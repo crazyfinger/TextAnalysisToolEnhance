@@ -15,6 +15,8 @@ internal sealed class FilterDialog : FilterFindDialogBase
 
 	private const int MarkedIndex = 1;
 
+	private const int LineNumberIndex = 2;
+
 	private bool m_activatedYet;
 
 	private bool m_enableNewFilter = true;
@@ -67,6 +69,16 @@ internal sealed class FilterDialog : FilterFindDialogBase
 
 	private ComboBox m_textCombo;
 
+	private FlowLayoutPanel m_lineNumberPanel;
+
+	private TextBox m_startLineBox;
+
+	private TextBox m_endLineBox;
+
+	private bool m_descriptionManuallyEdited;
+
+	private bool m_isUpdatingDescription;
+
 	public FilterDialog(string initialText, Filter filter, Func<bool, int[]> getCustomColors)
 		: this(initialText, getCustomColors)
 	{
@@ -95,7 +107,7 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		InitBaseUI(initialText);
 		Text = "Add Filter";
 		m_filterTypeLabel.Text = "&Filter:";
-		m_filterTypeCombo.Items.AddRange(new object[2] { "Matches text", "Marked by marker" });
+		m_filterTypeCombo.Items.AddRange(new object[3] { "Matches text", "Marked by marker", "Line number range" });
 		m_backColorLabel.Text = "&Background:";
 		m_foreColorCombo.GetCustomColors = getCustomColors;
 		m_foreColorCombo.Initialized = true;
@@ -104,6 +116,7 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		m_backColorCombo.Initialized = true;
 		m_markerTypeCombo.Items.AddRange(Enumerable.Range(1, 8).Select((Func<int, object>)((int i) => i)).ToArray());
 		m_descriptionLabel.Text = "&Description:";
+		m_descriptionBox.TextChanged += new EventHandler(DescriptionBox_TextChanged);
 		m_excludingCheck.Text = "E&xcluding [!]";
 		m_minWidthControls.Add(m_descriptionLabel);
 		m_minWidthControls.Add(m_topRowFlowLayoutPanel);
@@ -146,6 +159,14 @@ internal sealed class FilterDialog : FilterFindDialogBase
 				m_filterTypeCombo.SelectedIndex = 1;
 				MarkedFilter markedFilter = (MarkedFilter)f;
 				m_markerTypeCombo.SelectedIndex = markedFilter.Marker;
+			}
+			else if (f is LineNumberFilter lineNumberFilter)
+			{
+				m_filterTypeCombo.SelectedIndex = LineNumberIndex;
+				m_startLineBox.Text = lineNumberFilter.StartLine > 0 ? lineNumberFilter.StartLine.ToString() : string.Empty;
+				m_endLineBox.Text = lineNumberFilter.EndLine > 0 ? lineNumberFilter.EndLine.ToString() : string.Empty;
+				string defaultDesc = LineNumberFilter.FormatDefaultDescription(lineNumberFilter.StartLine, lineNumberFilter.EndLine, lineNumberFilter.Excluding);
+				m_descriptionManuallyEdited = !string.IsNullOrEmpty(f.Description) && f.Description != defaultDesc;
 			}
 			base.ConfigureFromFilter(f);
 			m_foreColorCombo.Initialized = initialized;
@@ -220,34 +241,54 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		base.OnActivated(e);
 		if (!m_activatedYet)
 		{
-			m_textCombo.Focus();
-			m_markerTypeCombo.Focus();
+			if (m_filterTypeCombo.SelectedIndex == LineNumberIndex)
+			{
+				if (string.IsNullOrEmpty(m_startLineBox.Text) && !string.IsNullOrEmpty(m_endLineBox.Text))
+				{
+					m_endLineBox.Focus();
+				}
+				else
+				{
+					m_startLineBox.Focus();
+				}
+			}
+			else
+			{
+				m_textCombo.Focus();
+				m_markerTypeCombo.Focus();
+			}
 			m_activatedYet = true;
 		}
 	}
 
 	private void FilterType_SelectedIndexChanged(object sender, EventArgs e)
 	{
-		bool flag = true;
-		bool visible = false;
 		int selectedIndex = m_filterTypeCombo.SelectedIndex;
-		if (selectedIndex != 0 && selectedIndex == 1)
+		bool isMatchesText = (selectedIndex == MatchesTextIndex);
+		bool isMarked = (selectedIndex == MarkedIndex);
+		bool isLineNumber = (selectedIndex == LineNumberIndex);
+
+		m_markerTypeCombo.Visible = isMarked;
+		m_textCombo.Visible = isMatchesText;
+		m_lineNumberPanel.Visible = isLineNumber;
+
+		m_caseSensitiveCheck.Visible = isMatchesText;
+		m_regularExpressionCheck.Visible = isMatchesText;
+
+		if (isLineNumber)
 		{
-			flag = false;
-			visible = true;
+			m_textLabel.Text = "&Lines:";
+			UpdateLineNumberDescriptionIfAuto();
 		}
-		m_markerTypeCombo.Visible = visible;
-		m_textCombo.Visible = flag;
-		m_caseSensitiveCheck.Visible = flag;
-		m_regularExpressionCheck.Visible = flag;
-		if (flag)
-		{
-			m_textLabel.Text = "&Text:";
-		}
-		else
+		else if (isMarked)
 		{
 			m_textLabel.Text = "&Marker:";
 		}
+		else
+		{
+			m_textLabel.Text = "&Text:";
+		}
+
 		ValidateInput(null, null);
 	}
 
@@ -265,12 +306,13 @@ internal sealed class FilterDialog : FilterFindDialogBase
 	{
 		m_foreColorCombo.Enabled = !m_excludingCheck.Checked;
 		m_backColorCombo.Enabled = !m_excludingCheck.Checked;
+		UpdateLineNumberDescriptionIfAuto();
 	}
 
 	protected override bool ValidateMarkerInput()
 	{
 		bool flag = false;
-		if (m_filterTypeCombo != null && 1 == m_filterTypeCombo.SelectedIndex)
+		if (m_filterTypeCombo != null && (m_filterTypeCombo.SelectedIndex == MarkedIndex || m_filterTypeCombo.SelectedIndex == LineNumberIndex))
 		{
 			flag = true;
 		}
@@ -281,6 +323,97 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		return flag;
 	}
 
+	private void LineNumber_TextChanged(object sender, EventArgs e)
+	{
+		UpdateLineNumberDescriptionIfAuto();
+		ValidateInput(sender, e);
+	}
+
+	private void UpdateLineNumberDescriptionIfAuto()
+	{
+		if (m_filterTypeCombo != null && m_filterTypeCombo.SelectedIndex == LineNumberIndex && !m_descriptionManuallyEdited)
+		{
+			int.TryParse(m_startLineBox.Text.Trim(), out int startLine);
+			int.TryParse(m_endLineBox.Text.Trim(), out int endLine);
+			string autoDesc = LineNumberFilter.FormatDefaultDescription(startLine, endLine, m_excludingCheck.Checked);
+			m_isUpdatingDescription = true;
+			try
+			{
+				m_descriptionBox.Text = autoDesc;
+			}
+			finally
+			{
+				m_isUpdatingDescription = false;
+			}
+		}
+	}
+
+	private void DescriptionBox_TextChanged(object sender, EventArgs e)
+	{
+		if (!m_isUpdatingDescription && m_filterTypeCombo != null && m_filterTypeCombo.SelectedIndex == LineNumberIndex)
+		{
+			if (string.IsNullOrWhiteSpace(m_descriptionBox.Text))
+			{
+				m_descriptionManuallyEdited = false;
+				UpdateLineNumberDescriptionIfAuto();
+			}
+			else
+			{
+				int.TryParse(m_startLineBox.Text.Trim(), out int startLine);
+				int.TryParse(m_endLineBox.Text.Trim(), out int endLine);
+				string autoDesc = LineNumberFilter.FormatDefaultDescription(startLine, endLine, m_excludingCheck.Checked);
+				if (m_descriptionBox.Text != autoDesc)
+				{
+					m_descriptionManuallyEdited = true;
+				}
+			}
+		}
+	}
+
+	protected override void ValidateInput(object sender, EventArgs ea)
+	{
+		base.ValidateInput(sender, ea);
+		if (m_filterTypeCombo != null && m_filterTypeCombo.SelectedIndex == LineNumberIndex)
+		{
+			m_errorProvider.SetError(m_startLineBox, "");
+			m_errorProvider.SetError(m_endLineBox, "");
+
+			string startText = m_startLineBox.Text.Trim();
+			string endText = m_endLineBox.Text.Trim();
+
+			bool hasStart = !string.IsNullOrEmpty(startText);
+			bool hasEnd = !string.IsNullOrEmpty(endText);
+
+			int startVal = 0;
+			int endVal = 0;
+
+			if (!hasStart && !hasEnd)
+			{
+				m_validInput = false;
+				m_errorProvider.SetError(m_startLineBox, "Specify at least a start line or an end line.");
+			}
+			else
+			{
+				if (hasStart && (!int.TryParse(startText, out startVal) || startVal <= 0))
+				{
+					m_validInput = false;
+					m_errorProvider.SetError(m_startLineBox, "Start line must be a positive integer.");
+				}
+				if (hasEnd && (!int.TryParse(endText, out endVal) || endVal <= 0))
+				{
+					m_validInput = false;
+					m_errorProvider.SetError(m_endLineBox, "End line must be a positive integer.");
+				}
+				if (m_validInput && hasStart && hasEnd && startVal > endVal)
+				{
+					m_validInput = false;
+					m_errorProvider.SetError(m_startLineBox, "Start line cannot be greater than end line.");
+				}
+			}
+			m_okButton.Enabled = m_validInput;
+		}
+	}
+
 	protected override void OK_Click(object sender, EventArgs e)
 	{
 		base.OK_Click(sender, e);
@@ -289,12 +422,23 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		{
 			switch (m_filterTypeCombo.SelectedIndex)
 			{
-			case 0:
+			case MatchesTextIndex:
 				m_filter = new MatchesTextFilter(m_enableNewFilter, m_excludingCheck.Checked, m_foreColorCombo.SelectedColor, m_backColorCombo.SelectedColor, m_textCombo.Text, m_caseSensitiveCheck.Checked, m_regularExpressionCheck.Checked, m_descriptionBox.Text);
 				flag = true;
 				break;
-			case 1:
+			case MarkedIndex:
 				m_filter = new MarkedFilter(m_enableNewFilter, m_excludingCheck.Checked, m_foreColorCombo.SelectedColor, m_backColorCombo.SelectedColor, m_markerTypeCombo.SelectedIndex, m_descriptionBox.Text);
+				flag = true;
+				break;
+			case LineNumberIndex:
+				int.TryParse(m_startLineBox.Text.Trim(), out int startLine);
+				int.TryParse(m_endLineBox.Text.Trim(), out int endLine);
+				string desc = m_descriptionBox.Text;
+				if (!m_descriptionManuallyEdited || string.IsNullOrWhiteSpace(desc))
+				{
+					desc = LineNumberFilter.FormatDefaultDescription(startLine, endLine, m_excludingCheck.Checked);
+				}
+				m_filter = new LineNumberFilter(m_enableNewFilter, m_excludingCheck.Checked, m_foreColorCombo.SelectedColor, m_backColorCombo.SelectedColor, startLine, endLine, desc);
 				flag = true;
 				break;
 			}
@@ -327,7 +471,7 @@ internal sealed class FilterDialog : FilterFindDialogBase
 			}
 			else if (m_filterList[i] is LineNumberFilter lineNumberFilter)
 			{
-				filter = new LineNumberFilter(lineNumberFilter.Enabled, lineNumberFilter.Excluding, lineNumberFilter.ForegroundColor, lineNumberFilter.BackgroundColor, lineNumberFilter.LineNumber, lineNumberFilter.HideBefore, (m_descriptionBox.Text == "[multiple values]") ? lineNumberFilter.Description : m_descriptionBox.Text);
+				filter = new LineNumberFilter(lineNumberFilter.Enabled, (m_excludingCheck.CheckState == CheckState.Indeterminate) ? lineNumberFilter.Excluding : m_excludingCheck.Checked, m_foreColorCombo.IsIndeterminateColor ? lineNumberFilter.ForegroundColor : m_foreColorCombo.SelectedColor, m_backColorCombo.IsIndeterminateColor ? lineNumberFilter.BackgroundColor : m_backColorCombo.SelectedColor, lineNumberFilter.StartLine, lineNumberFilter.EndLine, (m_descriptionBox.Text == "[multiple values]") ? lineNumberFilter.Description : m_descriptionBox.Text);
 			}
 			else
 			{
@@ -376,6 +520,9 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		this.filterTextMarkerLayoutPanel = new System.Windows.Forms.TableLayoutPanel();
 		this.m_markerTypeCombo = new System.Windows.Forms.ComboBox();
 		this.m_textCombo = new System.Windows.Forms.ComboBox();
+		this.m_lineNumberPanel = new System.Windows.Forms.FlowLayoutPanel();
+		this.m_startLineBox = new System.Windows.Forms.TextBox();
+		this.m_endLineBox = new System.Windows.Forms.TextBox();
 		this.m_toolTip = new System.Windows.Forms.ToolTip(this.components);
 		this.m_errorProvider = new System.Windows.Forms.ErrorProvider(this.components);
 		this.m_mainTableLayoutPanel.SuspendLayout();
@@ -573,11 +720,13 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		this.filterTextMarkerLayoutPanel.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 		this.filterTextMarkerLayoutPanel.AutoSize = true;
 		this.filterTextMarkerLayoutPanel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-		this.filterTextMarkerLayoutPanel.ColumnCount = 2;
+		this.filterTextMarkerLayoutPanel.ColumnCount = 3;
+		this.filterTextMarkerLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
 		this.filterTextMarkerLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
 		this.filterTextMarkerLayoutPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
 		this.filterTextMarkerLayoutPanel.Controls.Add(this.m_markerTypeCombo, 0, 0);
 		this.filterTextMarkerLayoutPanel.Controls.Add(this.m_textCombo, 1, 0);
+		this.filterTextMarkerLayoutPanel.Controls.Add(this.m_lineNumberPanel, 2, 0);
 		this.filterTextMarkerLayoutPanel.Location = new System.Drawing.Point(145, 88);
 		this.filterTextMarkerLayoutPanel.Margin = new System.Windows.Forms.Padding(0);
 		this.filterTextMarkerLayoutPanel.Name = "filterTextMarkerLayoutPanel";
@@ -585,6 +734,40 @@ internal sealed class FilterDialog : FilterFindDialogBase
 		this.filterTextMarkerLayoutPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100f));
 		this.filterTextMarkerLayoutPanel.Size = new System.Drawing.Size(531, 41);
 		this.filterTextMarkerLayoutPanel.TabIndex = 1;
+
+		this.m_lineNumberPanel.AutoSize = true;
+		this.m_lineNumberPanel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+		this.m_lineNumberPanel.WrapContents = false;
+		this.m_lineNumberPanel.Margin = new System.Windows.Forms.Padding(0);
+		this.m_lineNumberPanel.Visible = false;
+
+		System.Windows.Forms.Label lblStart = new System.Windows.Forms.Label();
+		lblStart.Text = "Start line:";
+		lblStart.AutoSize = true;
+		lblStart.Margin = new System.Windows.Forms.Padding(2, 6, 4, 2);
+
+		this.m_startLineBox.Width = 80;
+		this.m_startLineBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+		this.m_startLineBox.Margin = new System.Windows.Forms.Padding(0, 2, 0, 2);
+		this.m_startLineBox.TextChanged += new System.EventHandler(LineNumber_TextChanged);
+
+		System.Windows.Forms.Label lblEnd = new System.Windows.Forms.Label();
+		lblEnd.Text = "End line:";
+		lblEnd.AutoSize = true;
+		lblEnd.Margin = new System.Windows.Forms.Padding(12, 6, 4, 2);
+
+		this.m_endLineBox.Width = 80;
+		this.m_endLineBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+		this.m_endLineBox.Margin = new System.Windows.Forms.Padding(0, 2, 0, 2);
+		this.m_endLineBox.TextChanged += new System.EventHandler(LineNumber_TextChanged);
+
+		System.Windows.Forms.Label lblHint = new System.Windows.Forms.Label();
+		lblHint.Text = "(leave empty for unbounded)";
+		lblHint.AutoSize = true;
+		lblHint.ForeColor = System.Drawing.SystemColors.GrayText;
+		lblHint.Margin = new System.Windows.Forms.Padding(8, 6, 2, 2);
+
+		this.m_lineNumberPanel.Controls.AddRange(new System.Windows.Forms.Control[] { lblStart, this.m_startLineBox, lblEnd, this.m_endLineBox, lblHint });
 		this.m_markerTypeCombo.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 		this.m_markerTypeCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
 		this.m_markerTypeCombo.FormattingEnabled = true;

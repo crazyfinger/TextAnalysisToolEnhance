@@ -573,6 +573,16 @@ internal sealed class CTextAnalysisTool : IDisposable
 		m_filterCollection.Add(filter);
 	}
 
+	public void AddHideLinesRangeFilter(int startLine, int endLine)
+	{
+		if (startLine <= 0 || endLine <= 0 || startLine > endLine)
+		{
+			return;
+		}
+		LineNumberFilter filter = new LineNumberFilter(enabled: true, excluding: true, Color.Empty, Color.Empty, startLine, endLine, $"Hide lines {startLine} to {endLine}");
+		m_filterCollection.Add(filter);
+	}
+
 	public void ShowEditFilterDialog(Filter editFilter)
 	{
 		using FilterDialog filterDialog = new FilterDialog(null, editFilter, GetCustomColors);

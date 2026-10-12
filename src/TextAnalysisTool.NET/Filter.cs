@@ -157,6 +157,14 @@ internal abstract class Filter
 			xmlWriter.WriteAttributeString("type", "line_number");
 			xmlWriter.WriteAttributeString("line", lineNumberFilter.LineNumber.ToString(CultureInfo.CurrentCulture));
 			xmlWriter.WriteAttributeString("hide_before", lineNumberFilter.HideBefore ? "y" : "n");
+			if (lineNumberFilter.StartLine > 0)
+			{
+				xmlWriter.WriteAttributeString("start_line", lineNumberFilter.StartLine.ToString(CultureInfo.CurrentCulture));
+			}
+			if (lineNumberFilter.EndLine > 0)
+			{
+				xmlWriter.WriteAttributeString("end_line", lineNumberFilter.EndLine.ToString(CultureInfo.CurrentCulture));
+			}
 		}
 		xmlWriter.WriteEndElement();
 	}
@@ -210,6 +218,22 @@ internal abstract class Filter
 		}
 		if ("line_number" == value)
 		{
+			XmlNode startLineNode = attributes.GetNamedItem("start_line");
+			XmlNode endLineNode = attributes.GetNamedItem("end_line");
+			int startLine = 0;
+			int endLine = 0;
+			if (startLineNode != null && int.TryParse(startLineNode.Value, NumberStyles.Integer, CultureInfo.CurrentCulture, out int parsedStart))
+			{
+				startLine = parsedStart;
+			}
+			if (endLineNode != null && int.TryParse(endLineNode.Value, NumberStyles.Integer, CultureInfo.CurrentCulture, out int parsedEnd))
+			{
+				endLine = parsedEnd;
+			}
+			if (startLine > 0 || endLine > 0)
+			{
+				return new LineNumberFilter(enabled, excluding, foreColor, backColor, startLine, endLine, description);
+			}
 			XmlNode lineNode = attributes.GetNamedItem("line");
 			XmlNode hideBeforeNode = attributes.GetNamedItem("hide_before");
 			Utility.ThrowExceptionIf(lineNode == null || hideBeforeNode == null, null, typeof(ApplicationException));

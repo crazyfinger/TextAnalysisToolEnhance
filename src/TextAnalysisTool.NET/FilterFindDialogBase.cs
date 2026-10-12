@@ -115,7 +115,7 @@ internal class FilterFindDialogBase : Form
 		ValidateInput(null, null);
 	}
 
-	protected void ValidateInput(object sender, EventArgs ea)
+	protected virtual void ValidateInput(object sender, EventArgs ea)
 	{
 		m_errorProviderBase.SetError(m_textComboBase, "");
 		string text = m_textComboBase.Text;

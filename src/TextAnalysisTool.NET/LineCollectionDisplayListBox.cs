@@ -287,21 +287,45 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 
 	private void ContextMenuStrip_Opening(object sender, CancelEventArgs e)
 	{
-		bool enabled = CallSendMessage(400u, 0, 0) > 0;
+		int[] selectedLines = GetSelectedLineNumbers();
+		bool hasSelection = selectedLines != null && selectedLines.Length > 0;
+		bool isMultiSelect = selectedLines != null && selectedLines.Length > 1;
+
 		ToolStripDropDown menu = (ToolStripDropDown)sender;
 		menu.Items.Clear();
 		AddPluginMenuItems(menu);
+
+		if (isMultiSelect)
+		{
+			int minLine = int.MaxValue;
+			int maxLine = int.MinValue;
+			for (int i = 0; i < selectedLines.Length; i++)
+			{
+				if (selectedLines[i] < minLine)
+				{
+					minLine = selectedLines[i];
+				}
+				if (selectedLines[i] > maxLine)
+				{
+					maxLine = selectedLines[i];
+				}
+			}
+			ToolStripMenuItem hideRangeItem = new ToolStripMenuItem($"Hide Lines {minLine} to {maxLine}");
+			hideRangeItem.Click += (s, e2) => m_textAnalysisTool.AddHideLinesRangeFilter(minLine, maxLine);
+			menu.Items.Add(hideRangeItem);
+		}
+
 		menu.Items.Add(m_hideBeforeItem);
 		menu.Items.Add(m_hideAfterItem);
 		menu.Items.Add(m_markerMenu);
-		m_hideBeforeItem.Enabled = enabled;
-		m_hideAfterItem.Enabled = enabled;
-		m_markerMenu.Enabled = enabled;
+		m_hideBeforeItem.Enabled = hasSelection;
+		m_hideAfterItem.Enabled = hasSelection;
+		m_markerMenu.Enabled = hasSelection;
 		foreach (ToolStripItem item in m_markerMenu.DropDownItems)
 		{
 			if (item is FullyEnabledMenuItem fullyEnabledMenuItem)
 			{
-				fullyEnabledMenuItem.Enabled = enabled;
+				fullyEnabledMenuItem.Enabled = hasSelection;
 			}
 		}
 	}
