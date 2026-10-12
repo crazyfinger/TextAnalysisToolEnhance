@@ -85,7 +85,12 @@ public sealed class PluginContextMenuItem {
     public string Text { get; }          // the menu label, e.g. "Filter by tag AudioSystem"
     public string FilterPattern { get; } // a regex that keeps the matching lines
     public bool CaseSensitive { get; }   // whether the regex filter is case-sensitive
-    public PluginContextMenuItem(string text, string filterPattern, bool caseSensitive = false);
+    public System.Drawing.Color ForeColor { get; } // text color for the created filter (Color.Empty for default)
+    public System.Drawing.Color BackColor { get; } // background color for the created filter
+    public string Description { get; }   // description displayed in the filter list
+    public bool PromptForColor { get; }  // whether clicking prompts user with a ColorDialog
+    public System.Action ClickAction { get; } // custom action callback when clicked
+    public System.Collections.Generic.IList<PluginContextMenuItem> SubItems { get; } // child dropdown items
 }
 ```
 

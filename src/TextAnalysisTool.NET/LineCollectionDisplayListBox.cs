@@ -345,10 +345,12 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 				{
 					continue;
 				}
-				string pattern = item.FilterPattern;
-				bool caseSensitive = item.CaseSensitive;
-				ToolStripMenuItem menuItem = new ToolStripMenuItem(item.Text);
-				menuItem.Click += (s, e2) => m_textAnalysisTool.AddFilterFromPattern(pattern, caseSensitive);
+				if (item.IsSeparator)
+				{
+					menu.Items.Add(new ToolStripSeparator());
+					continue;
+				}
+				ToolStripMenuItem menuItem = BuildPluginMenuItem(item);
 				menu.Items.Add(menuItem);
 				addedAny = true;
 			}
@@ -357,6 +359,88 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			menu.Items.Add(new ToolStripSeparator());
 		}
+	}
+
+	private ToolStripMenuItem BuildPluginMenuItem(PluginContextMenuItem item)
+	{
+		ToolStripMenuItem menuItem = new ToolStripMenuItem(item.Text);
+		if (item.ForeColor != Color.Empty && item.ForeColor != Color.Transparent)
+		{
+			menuItem.Image = CreateColorBadge(item.ForeColor, item.BackColor);
+		}
+		if (item.SubItems != null && item.SubItems.Count > 0)
+		{
+			foreach (PluginContextMenuItem subItem in item.SubItems)
+			{
+				if (subItem == null)
+				{
+					continue;
+				}
+				if (subItem.IsSeparator)
+				{
+					menuItem.DropDownItems.Add(new ToolStripSeparator());
+				}
+				else
+				{
+					menuItem.DropDownItems.Add(BuildPluginMenuItem(subItem));
+				}
+			}
+		}
+		if (!string.IsNullOrEmpty(item.FilterPattern))
+		{
+			string pattern = item.FilterPattern;
+			bool caseSensitive = item.CaseSensitive;
+			Color foreColor = item.ForeColor;
+			Color backColor = item.BackColor;
+			string description = item.Description;
+			bool promptForColor = item.PromptForColor;
+			menuItem.Click += (s, e2) =>
+			{
+				if (promptForColor)
+				{
+					using ColorDialog dlg = new ColorDialog();
+					dlg.Color = (foreColor != Color.Empty && foreColor != Color.Transparent) ? foreColor : Color.Black;
+					dlg.FullOpen = true;
+					if (dlg.ShowDialog(this) == DialogResult.OK)
+					{
+						m_textAnalysisTool.AddFilterFromPattern(pattern, caseSensitive, dlg.Color, backColor, description);
+					}
+				}
+				else
+				{
+					m_textAnalysisTool.AddFilterFromPattern(pattern, caseSensitive, foreColor, backColor, description);
+				}
+			};
+		}
+		else if (item.ClickAction != null)
+		{
+			Action action = item.ClickAction;
+			menuItem.Click += (s, e2) => action();
+		}
+		return menuItem;
+	}
+
+	private static Image CreateColorBadge(Color foreColor, Color backColor)
+	{
+		Bitmap bmp = new Bitmap(16, 16);
+		using (Graphics g = Graphics.FromImage(bmp))
+		{
+			g.Clear(Color.Transparent);
+			if (backColor != Color.Empty && backColor != Color.Transparent)
+			{
+				using Brush backBrush = new SolidBrush(backColor);
+				g.FillRectangle(backBrush, 1, 1, 14, 14);
+			}
+			using (Brush foreBrush = new SolidBrush(foreColor))
+			{
+				g.FillRectangle(foreBrush, 3, 3, 10, 10);
+			}
+			using (Pen borderPen = new Pen(Color.FromArgb(140, 140, 140)))
+			{
+				g.DrawRectangle(borderPen, 2, 2, 11, 11);
+			}
+		}
+		return bmp;
 	}
 
 	private FullyEnabledMenuItem MarkerMenu(int i)

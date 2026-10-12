@@ -548,7 +548,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 		}
 	}
 
-	public void AddFilterFromPattern(string filterPattern, bool caseSensitive)
+	public void AddFilterFromPattern(string filterPattern, bool caseSensitive, Color foreColor = default, Color backColor = default, string description = null)
 	{
 		if (string.IsNullOrEmpty(filterPattern))
 		{
@@ -557,7 +557,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 		Filter filter;
 		try
 		{
-			filter = new MatchesTextFilter(enabled: true, excluding: false, Color.Empty, Color.Empty, filterPattern, caseSensitive, usesRegularExpression: true);
+			filter = new MatchesTextFilter(enabled: true, excluding: false, foreColor, backColor, filterPattern, caseSensitive, usesRegularExpression: true, description ?? string.Empty);
 		}
 		catch (ArgumentException)
 		{

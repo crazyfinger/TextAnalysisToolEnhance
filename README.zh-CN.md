@@ -71,7 +71,12 @@ public sealed class PluginContextMenuItem {
     public string Text { get; }          // 菜单文字，如 "Filter by tag AudioSystem"
     public string FilterPattern { get; } // 用于保留匹配行的正则
     public bool CaseSensitive { get; }   // 正则过滤器是否区分大小写
-    public PluginContextMenuItem(string text, string filterPattern, bool caseSensitive = false);
+    public System.Drawing.Color ForeColor { get; } // 所生成过滤器的文本前景色（Color.Empty 表示默认）
+    public System.Drawing.Color BackColor { get; } // 所生成过滤器的背景色
+    public string Description { get; }   // 过滤器列表中显示的描述文字
+    public bool PromptForColor { get; }  // 点击时是否弹出颜色对话框让用户挑选颜色
+    public System.Action ClickAction { get; } // 自定义点击回调
+    public System.Collections.Generic.IList<PluginContextMenuItem> SubItems { get; } // 子下拉菜单项
 }
 ```
 
