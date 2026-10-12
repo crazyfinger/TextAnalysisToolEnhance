@@ -28,6 +28,10 @@ internal sealed class MainWindow : Form
 
 	private readonly FullyEnabledMenuItem m_menuFileSaveFilters;
 
+	private readonly FullyEnabledMenuItem m_menuHelpSendTo;
+
+	private string[] m_initialFilesToOpenOrMerge;
+
 	private readonly FullyEnabledMenuItem m_menuEditCopy;
 
 	private readonly FullyEnabledMenuItem m_menuEditCopyLegacy;
@@ -356,16 +360,26 @@ internal sealed class MainWindow : Form
 		m_menuFilter.DropDownOpening += Menu_Opening;
 		FullyEnabledMenuItem fullyEnabledMenuItem7 = new FullyEnabledMenuItem("&Documentation", null, HelpDocumentation_Click, Keys.F1);
 		FullyEnabledMenuItem fullyEnabledMenuItem8 = new FullyEnabledMenuItem("Installed &plug-ins", null, HelpPlugins_Click);
+		m_menuHelpSendTo = new FullyEnabledMenuItem(
+			ShellShortcut.IsInSendTo() ? "Remove from Windows \"Send To\" Menu" : "Add to Windows \"Send To\" Menu",
+			null,
+			HelpSendTo_Click);
 		FullyEnabledMenuItem fullyEnabledMenuItem9 = new FullyEnabledMenuItem("&About", null, HelpAbout_Click);
 		FullyEnabledMenuItem fullyEnabledMenuItem10 = new FullyEnabledMenuItem("&Help");
-		fullyEnabledMenuItem10.DropDownItems.AddRange(new ToolStripItem[5]
+		fullyEnabledMenuItem10.DropDownItems.AddRange(new ToolStripItem[7]
 		{
 			fullyEnabledMenuItem7,
 			new ToolStripSeparator(),
 			fullyEnabledMenuItem8,
 			new ToolStripSeparator(),
+			m_menuHelpSendTo,
+			new ToolStripSeparator(),
 			fullyEnabledMenuItem9
 		});
+		fullyEnabledMenuItem10.DropDownOpening += (s, e) =>
+		{
+			m_menuHelpSendTo.Text = ShellShortcut.IsInSendTo() ? "Remove from Windows \"Send To\" Menu" : "Add to Windows \"Send To\" Menu";
+		};
 		menuStrip.Items.AddRange(new ToolStripItem[5] { m_menuFile, m_menuEdit, m_menuView, m_menuFilter, fullyEnabledMenuItem10 });
 		m_lineCollectionDisplay = lineCollectionDisplay;
 		m_lineCollectionDisplay.TabIndex = 0;
@@ -460,8 +474,21 @@ internal sealed class MainWindow : Form
 		m_preferencesImportFilterIndex = 1;
 		// When opened from the command line / shell, a file is loaded before the
 		// window is shown, so the LoadLines Focus() has no effect. Ensure the main
-		// line list gets keyboard focus once the window is displayed.
-		Shown += (s, e) => m_lineCollectionDisplay.ListBox.Focus();
+		// line list gets keyboard focus once the window is displayed, or open the
+		// MergeDialog if multiple files or an archive were supplied.
+		Shown += (s, e) =>
+		{
+			if (m_initialFilesToOpenOrMerge != null && m_initialFilesToOpenOrMerge.Length > 0)
+			{
+				string[] files = m_initialFilesToOpenOrMerge;
+				m_initialFilesToOpenOrMerge = null;
+				BeginInvoke(new Action(() => OpenOrMergeFiles(files)));
+			}
+			else
+			{
+				m_lineCollectionDisplay.ListBox.Focus();
+			}
+		};
 	}
 
 	public void CreatePluginSettingsMenu(ArrayList plugins)
@@ -658,7 +685,12 @@ internal sealed class MainWindow : Form
 		}
 	}
 
-	private void OpenOrMergeFiles(string[] files)
+	public void SetInitialFilesToOpenOrMerge(string[] files)
+	{
+		m_initialFilesToOpenOrMerge = files;
+	}
+
+	public void OpenOrMergeFiles(string[] files)
 	{
 		using MergeDialog dialog = new MergeDialog(files);
 		if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -673,6 +705,32 @@ internal sealed class MainWindow : Form
 		{
 			LoadFile(dialog.MergedOutputPath);
 			UpdateRecentFiles(dialog.MergedOutputPath);
+		}
+	}
+
+	private void HelpSendTo_Click(object sender, EventArgs e)
+	{
+		if (ShellShortcut.IsInSendTo())
+		{
+			if (ShellShortcut.RemoveFromSendTo())
+			{
+				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
+			}
+			else
+			{
+				CTextAnalysisTool.ShowMessageBox("Failed to remove TextAnalysisTool.NET from the 'Send to' menu.", MessageBoxIcon.Hand);
+			}
+		}
+		else
+		{
+			if (ShellShortcut.AddToSendTo())
+			{
+				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> TextAnalysisTool.NET' to open or merge them.", MessageBoxIcon.Information);
+			}
+			else
+			{
+				CTextAnalysisTool.ShowMessageBox("Failed to add TextAnalysisTool.NET to the 'Send to' menu.", MessageBoxIcon.Hand);
+			}
 		}
 	}
 
@@ -1291,8 +1349,15 @@ internal sealed class MainWindow : Form
 				string[] array = (string[])e.Data.GetData(DataFormats.FileDrop);
 				if (1 <= array.Length)
 				{
-					m_textAnalysisTool.LoadLinesFromFile(array[0]);
-					UpdateRecentFiles(array[0]);
+					if (array.Length == 1 && !ArchiveSupport.IsArchivePath(array[0]))
+					{
+						LoadFile(array[0]);
+						UpdateRecentFiles(array[0]);
+					}
+					else
+					{
+						OpenOrMergeFiles(array);
+					}
 				}
 			}
 			else if (e.Data.GetDataPresent(DataFormats.UnicodeText))
@@ -1339,7 +1404,7 @@ internal sealed class MainWindow : Form
 		m_textAnalysisTool.LoadFiltersFromFile(fileName, replaceFilters);
 	}
 
-	private void UpdateRecentFiles(string fileName)
+	public void UpdateRecentFiles(string fileName)
 	{
 		UpdateRecentList(fileName, Settings.RecentFiles);
 		UpdateRecentFilesMenus();

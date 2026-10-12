@@ -136,9 +136,11 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		}
 	}
 
+	private static readonly LineCollection s_emptyLineCollection = new LineCollection();
+
 	public bool LinesVisible => CurrentDisplayLines.Count != 0;
 
-	public LineCollection SourceLines => m_sourceLines;
+	public LineCollection SourceLines => m_sourceLines ?? s_emptyLineCollection;
 
 	public event EventHandler MarkersChanged;
 
@@ -150,9 +152,9 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			if (!m_showOnlyFilteredLines)
 			{
-				return m_sourceLines;
+				return m_sourceLines ?? s_emptyLineCollection;
 			}
-			return m_filteredLines;
+			return m_filteredLines ?? s_emptyLineCollection;
 		}
 	}
 

@@ -44,15 +44,25 @@ internal class OptionsDialog : Form
 	{
 		TextAnalysisTool.NET.FullyEnabledMenuItem fullyEnabledMenuItem = new TextAnalysisTool.NET.FullyEnabledMenuItem("&Import...", null, new System.EventHandler(Import_Click));
 		TextAnalysisTool.NET.FullyEnabledMenuItem fullyEnabledMenuItem2 = new TextAnalysisTool.NET.FullyEnabledMenuItem("&Export...", null, new System.EventHandler(Export_Click));
+		TextAnalysisTool.NET.FullyEnabledMenuItem fullyEnabledMenuItemSendTo = new TextAnalysisTool.NET.FullyEnabledMenuItem(
+			ShellShortcut.IsInSendTo() ? "Remove from Windows \"Send To\" Menu" : "Add to Windows \"Send To\" Menu",
+			null,
+			new System.EventHandler(SendTo_Click));
 		TextAnalysisTool.NET.FullyEnabledMenuItem fullyEnabledMenuItem3 = new TextAnalysisTool.NET.FullyEnabledMenuItem("Restore &Defaults", null, new System.EventHandler(Defaults_Click));
 		System.Windows.Forms.ContextMenuStrip contextMenuStrip = new System.Windows.Forms.ContextMenuStrip();
-		contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[4]
+		contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[6]
 		{
 			fullyEnabledMenuItem,
 			fullyEnabledMenuItem2,
 			new System.Windows.Forms.ToolStripSeparator(),
+			fullyEnabledMenuItemSendTo,
+			new System.Windows.Forms.ToolStripSeparator(),
 			fullyEnabledMenuItem3
 		});
+		contextMenuStrip.Opening += (s, e) =>
+		{
+			fullyEnabledMenuItemSendTo.Text = ShellShortcut.IsInSendTo() ? "Remove from Windows \"Send To\" Menu" : "Add to Windows \"Send To\" Menu";
+		};
 		this.m_propertyGrid = new System.Windows.Forms.PropertyGrid();
 		this.m_okButton = new System.Windows.Forms.Button();
 		this.m_cancelButton = new System.Windows.Forms.Button();
@@ -192,6 +202,32 @@ internal class OptionsDialog : Form
 			m_exportFilterIndex = saveFileDialog.FilterIndex;
 			Settings.LastFileDirectory = new FileInfo(saveFileDialog.FileName).DirectoryName;
 			Settings.ExportConfiguration(saveFileDialog.FileName, ConfiguredOptions);
+		}
+	}
+
+	private void SendTo_Click(object sender, EventArgs e)
+	{
+		if (ShellShortcut.IsInSendTo())
+		{
+			if (ShellShortcut.RemoveFromSendTo())
+			{
+				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been removed from your Windows 'Send to' menu.", MessageBoxIcon.Information);
+			}
+			else
+			{
+				CTextAnalysisTool.ShowMessageBox("Failed to remove TextAnalysisTool.NET from the 'Send to' menu.", MessageBoxIcon.Hand);
+			}
+		}
+		else
+		{
+			if (ShellShortcut.AddToSendTo())
+			{
+				CTextAnalysisTool.ShowMessageBox("TextAnalysisTool.NET has been added to your Windows 'Send to' menu.\n\nYou can now select multiple log files or archives in Windows Explorer, right-click, and choose 'Send to -> TextAnalysisTool.NET' to open or merge them.", MessageBoxIcon.Information);
+			}
+			else
+			{
+				CTextAnalysisTool.ShowMessageBox("Failed to add TextAnalysisTool.NET to the 'Send to' menu.", MessageBoxIcon.Hand);
+			}
 		}
 	}
 

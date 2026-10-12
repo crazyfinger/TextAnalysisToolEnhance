@@ -263,6 +263,18 @@ internal sealed class CTextAnalysisTool : IDisposable
 
 	public void LoadLinesFromFile(string fileName)
 	{
+		if (ArchiveSupport.IsArchivePath(fileName))
+		{
+			if (m_mainWindow != null && m_mainWindow.Visible)
+			{
+				m_mainWindow.OpenOrMergeFiles(new string[] { fileName });
+			}
+			else if (m_mainWindow != null)
+			{
+				m_mainWindow.SetInitialFilesToOpenOrMerge(new string[] { fileName });
+			}
+			return;
+		}
 		LoadLines(LoadSource.File, fileName);
 	}
 
@@ -720,12 +732,38 @@ internal sealed class CTextAnalysisTool : IDisposable
 		bool flag2 = false;
 		bool flag3 = false;
 		int result = 0;
+		List<string> inputFiles = new List<string>();
 		if (args.Length != 0)
 		{
 			Regex regex = new Regex("^[/-](?<option>\\w+)(:(?<value>.+))?$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-			files = args;
-			foreach (string text2 in files)
+			foreach (string text2 in args)
 			{
+				if (string.IsNullOrEmpty(text2))
+				{
+					continue;
+				}
+				if (text2.StartsWith("@") && text2.Length > 1)
+				{
+					string listFilePath = text2.Substring(1).Trim('"', ' ');
+					if (File.Exists(listFilePath))
+					{
+						try
+						{
+							foreach (string line in File.ReadAllLines(listFilePath))
+							{
+								string trimmed = line.Trim().Trim('"', ' ');
+								if (!string.IsNullOrEmpty(trimmed))
+								{
+									inputFiles.Add(trimmed);
+								}
+							}
+							continue;
+						}
+						catch
+						{
+						}
+					}
+				}
 				Match match = regex.Match(text2);
 				if (match.Success)
 				{
@@ -767,17 +805,38 @@ internal sealed class CTextAnalysisTool : IDisposable
 							flag = true;
 						}
 					}
+					else if (string.Equals("sendto", b))
+					{
+						if (string.Equals("add", text3, StringComparison.OrdinalIgnoreCase))
+						{
+							ShellShortcut.AddToSendTo();
+						}
+						else if (string.Equals("remove", text3, StringComparison.OrdinalIgnoreCase))
+						{
+							ShellShortcut.RemoveFromSendTo();
+						}
+					}
 					else
 					{
 						ShowMessageBox("The following command line argument is not recognized and will be ignored: {0}.", text2, MessageBoxIcon.Hand);
 					}
 				}
-				else if (!flag)
+				else
 				{
-					LoadLinesFromFile(text2);
-					flag = true;
+					inputFiles.Add(text2.Trim('"', ' '));
 				}
 			}
+		}
+
+		if (inputFiles.Count == 1 && !ArchiveSupport.IsArchivePath(inputFiles[0]))
+		{
+			LoadLinesFromFile(inputFiles[0]);
+			m_mainWindow.UpdateRecentFiles(inputFiles[0]);
+			flag = true;
+		}
+		else if (inputFiles.Count > 0)
+		{
+			m_mainWindow.SetInitialFilesToOpenOrMerge(inputFiles.ToArray());
 		}
 		if (!flag && !flag2)
 		{
