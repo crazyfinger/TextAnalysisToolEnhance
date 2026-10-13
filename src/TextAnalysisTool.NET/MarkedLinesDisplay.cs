@@ -179,12 +179,25 @@ internal sealed class MarkedLinesDisplay : Panel
 
 	private void RefreshHorizontalExtent()
 	{
-		int maxWidth = 0;
+		if (m_linesListBox.Items.Count == 0)
+		{
+			m_linesListBox.HorizontalExtent = 0;
+			return;
+		}
+		MarkedLineItem longestItem = null;
+		int maxLen = 0;
 		foreach (object item in m_linesListBox.Items)
 		{
-			maxWidth = Math.Max(maxWidth, TextRenderer.MeasureText(item.ToString(), m_linesListBox.Font).Width);
+			if (item is MarkedLineItem mi && mi.Text.Length > maxLen)
+			{
+				maxLen = mi.Text.Length;
+				longestItem = mi;
+			}
 		}
-		m_linesListBox.HorizontalExtent = maxWidth;
+		if (longestItem != null)
+		{
+			m_linesListBox.HorizontalExtent = TextRenderer.MeasureText(longestItem.ToString(), m_linesListBox.Font).Width;
+		}
 	}
 
 	public void RefreshMarkedLines()
@@ -199,13 +212,9 @@ internal sealed class MarkedLinesDisplay : Panel
 				m_linesListBox.HorizontalExtent = 0;
 				return;
 			}
-			for (int lineNumber = 1; lineNumber <= sourceLines.Count; lineNumber++)
+			foreach (int lineNumber in sourceLines.GetMarkedLineNumbers(m_selectedMarker))
 			{
-				bool marked = (m_selectedMarker < 0) ? sourceLines.IsLineMarkedByAny(lineNumber) : sourceLines.IsLineMarkedBy(lineNumber, m_selectedMarker);
-				if (marked)
-				{
-					m_linesListBox.Items.Add(new MarkedLineItem(lineNumber, sourceLines.GetLineDisplayString(lineNumber, 0, includeMarkers: false)));
-				}
+				m_linesListBox.Items.Add(new MarkedLineItem(lineNumber, sourceLines.GetLineDisplayString(lineNumber, 0, includeMarkers: false)));
 			}
 			RefreshHorizontalExtent();
 		}

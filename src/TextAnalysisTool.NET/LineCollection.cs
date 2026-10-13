@@ -162,11 +162,28 @@ internal sealed class LineCollection
 
 	private static long m_markedLines;
 
+	private readonly SortedSet<int> m_markedLineNumbers;
+
 	public int Count => m_linesInCollection;
 
 	public int MaxDisplayWidth => m_maxDisplayWidth;
 
 	public static bool MarkersInUse => m_markedLines > 0;
+
+	public IEnumerable<int> GetMarkedLineNumbers(int marker = -1)
+	{
+		if (m_markedLineNumbers == null || m_markedLineNumbers.Count == 0)
+		{
+			yield break;
+		}
+		foreach (int lineNumber in m_markedLineNumbers)
+		{
+			if (marker < 0 || IsLineMarkedBy(lineNumber, marker))
+			{
+				yield return lineNumber;
+			}
+		}
+	}
 
 	public int[] LineNumbersInCollection
 	{
@@ -195,11 +212,13 @@ internal sealed class LineCollection
 	{
 		m_lineChunks = new List<Line[]>();
 		m_members = new BitArray(0, defaultValue: false);
+		m_markedLineNumbers = new SortedSet<int>();
 	}
 
 	public LineCollection(TextReader reader)
 	{
 		m_lineChunks = new List<Line[]>();
+		m_markedLineNumbers = new SortedSet<int>();
 		Line[] array = new Line[16384];
 		m_lineChunks.Add(array);
 		int num = 1;
@@ -227,6 +246,7 @@ internal sealed class LineCollection
 	{
 		m_lineChunks = originalLines.m_lineChunks;
 		m_linesInChunks = originalLines.m_linesInChunks;
+		m_markedLineNumbers = originalLines.m_markedLineNumbers;
 		m_members = new BitArray(originalLines.m_members.Length, defaultValue: false);
 		for (int i = 1; i <= m_linesInChunks; i++)
 		{
@@ -243,6 +263,7 @@ internal sealed class LineCollection
 	{
 		m_lineChunks = originalLines.m_lineChunks;
 		m_linesInChunks = originalLines.m_linesInChunks;
+		m_markedLineNumbers = originalLines.m_markedLineNumbers;
 		m_members = new BitArray(originalLines.m_members.Length, defaultValue: false);
 		BitArray bitArray = new BitArray(m_members.Length, defaultValue: false);
 		bool flag = false;
@@ -297,6 +318,7 @@ internal sealed class LineCollection
 		m_lineChunks = originalLines.m_lineChunks;
 		m_linesInChunks = originalLines.m_linesInChunks;
 		m_linesInCollection = originalLines.m_linesInCollection;
+		m_markedLineNumbers = originalLines.m_markedLineNumbers;
 		m_members = new BitArray(originalLines.m_members);
 		m_maxDisplayWidth = originalLines.m_maxDisplayWidth;
 		m_lineNumbersInCollection = null;
@@ -361,10 +383,12 @@ internal sealed class LineCollection
 		if (!markedByAny && markedByAny2)
 		{
 			m_markedLines++;
+			m_markedLineNumbers?.Add(lineNumber);
 		}
 		else if (markedByAny && !markedByAny2)
 		{
 			m_markedLines--;
+			m_markedLineNumbers?.Remove(lineNumber);
 		}
 	}
 
