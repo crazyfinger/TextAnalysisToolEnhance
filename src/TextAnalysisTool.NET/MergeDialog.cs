@@ -839,12 +839,12 @@ private Button MakeDetectButton()
 		DateTime? to = ParseTime(m_toTextBox.Text);
 		if (m_fromTextBox.Text.Trim().Length > 0 && !from.HasValue)
 		{
-			MessageBox.Show(this, "Invalid 'from' time. Use format MM-dd HH:mm:ss.SSS", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			MessageBox.Show(this, "Invalid 'from' time. Format: MM-dd HH:mm[:ss[.fff]] (e.g. 01-01 00:00:00)", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			return;
 		}
 		if (m_toTextBox.Text.Trim().Length > 0 && !to.HasValue)
 		{
-			MessageBox.Show(this, "Invalid 'to' time. Use format MM-dd HH:mm:ss.SSS", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			MessageBox.Show(this, "Invalid 'to' time. Format: MM-dd HH:mm[:ss[.fff]] (e.g. 01-01 00:00:00)", "Open / Merge Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			return;
 		}
 		if (from.HasValue && to.HasValue && to.Value <= from.Value)
@@ -1044,12 +1044,9 @@ private Button MakeDetectButton()
 		{
 			return null;
 		}
-		if (DateTime.TryParseExact(text.Trim(), "MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime result))
+		if (LogTimestampParser.TryParseFlexible(text.Trim(), out DateTime result))
 		{
-			// The merge engine parses log timestamps as year-2000 dates (only MM-dd
-			// is present in the logs), so normalize to the same year to keep the
-			// From/To filter comparable with log timestamps.
-			return new DateTime(2000, result.Month, result.Day, result.Hour, result.Minute, result.Second, result.Millisecond);
+			return result;
 		}
 		return null;
 	}

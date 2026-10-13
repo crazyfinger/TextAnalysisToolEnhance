@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -75,6 +77,69 @@ internal static class LogTimestampParser
 	{
 		return c >= '0' && c <= '9';
 	}
+
+	private static readonly Regex s_flexibleTimeRegex = new Regex(
+		@"^\s*(?:(?:\d{2,4}[-/])?(?<month>\d{1,2})[-/](?<day>\d{1,2}))\s+(?<hour>\d{1,2}):(?<minute>\d{1,2})(?::(?<second>\d{1,2}))?(?:\.(?<ms>\d{1,7}))?\s*$",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+	public static bool TryParseFlexible(string input, out DateTime timestamp)
+	{
+		timestamp = default;
+		if (string.IsNullOrWhiteSpace(input))
+		{
+			return false;
+		}
+
+		Match m = s_flexibleTimeRegex.Match(input);
+		if (!m.Success)
+		{
+			return false;
+		}
+
+		try
+		{
+			int month = int.Parse(m.Groups["month"].Value, CultureInfo.InvariantCulture);
+			int day = int.Parse(m.Groups["day"].Value, CultureInfo.InvariantCulture);
+			int hour = int.Parse(m.Groups["hour"].Value, CultureInfo.InvariantCulture);
+			int minute = int.Parse(m.Groups["minute"].Value, CultureInfo.InvariantCulture);
+
+			int second = 0;
+			if (m.Groups["second"].Success)
+			{
+				second = int.Parse(m.Groups["second"].Value, CultureInfo.InvariantCulture);
+			}
+
+			int ms = 0;
+			if (m.Groups["ms"].Success)
+			{
+				string msStr = m.Groups["ms"].Value;
+				if (msStr.Length > 3)
+				{
+					msStr = msStr.Substring(0, 3);
+				}
+				else if (msStr.Length < 3)
+				{
+					msStr = msStr.PadRight(3, '0');
+				}
+				ms = int.Parse(msStr, CultureInfo.InvariantCulture);
+			}
+
+			if (month < 1 || month > 12) return false;
+			int maxDays = DateTime.DaysInMonth(2000, month);
+			if (day < 1 || day > maxDays) return false;
+			if (hour < 0 || hour > 23) return false;
+			if (minute < 0 || minute > 59) return false;
+			if (second < 0 || second > 59) return false;
+			if (ms < 0 || ms > 999) return false;
+
+			timestamp = new DateTime(2000, month, day, hour, minute, second, ms);
+			return true;
+		}
+		catch
+		{
+			return false;
+		}
+	}
 }
 
 internal sealed class BinaryHeap<T>
@@ -108,6 +173,10 @@ internal sealed class BinaryHeap<T>
 
 	public T Pop()
 	{
+		if (m_items.Count == 0)
+		{
+			throw new InvalidOperationException("BinaryHeap is empty.");
+		}
 		T top = m_items[0];
 		int last = m_items.Count - 1;
 		m_items[0] = m_items[last];

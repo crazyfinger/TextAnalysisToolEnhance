@@ -18,10 +18,13 @@ pyghidra_mcp_projects/
 *.gzf
 .env
 # .NET build output
-src/bin/
-src/obj/
-src/TATPlugin_AndroidLog/obj/
-src/TATPlugin_AndroidLog/bin/
+**/[Bb]in/
+**/[Oo]bj/
+[Bb]in/
+[Oo]bj/
+TestResults/
+*.TestRun/
+.vs/
 *.pdb
 *.exe.config
 *.user

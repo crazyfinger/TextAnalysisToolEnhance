@@ -16,3 +16,4 @@ using System.Runtime.Versioning;
 [assembly: CLSCompliant(true)]
 [assembly: AssemblyVersion("1.0.9781.0")]
 [assembly: AssemblyFileVersion("2026.10.12.0")]
+[assembly: InternalsVisibleTo("TextAnalysisTool.NET.Tests")]

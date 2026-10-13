@@ -189,6 +189,8 @@ internal sealed class LineCollection
 
 	public int Count => m_linesInCollection;
 
+	public int MarkedLinesCount => m_markedLineNumbers?.Count ?? 0;
+
 	public int MaxDisplayWidth => m_maxDisplayWidth;
 
 	public static bool MarkersInUse => m_markedLines > 0;
