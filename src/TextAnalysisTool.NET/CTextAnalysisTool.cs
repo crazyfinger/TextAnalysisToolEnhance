@@ -459,7 +459,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 			DataObject dataObject = new DataObject();
 			dataObject.SetData(DataFormats.Html, ConvertToHtmlClipboardFormat(m_lineCollectionDisplay.ListBox.GetSelectedLinesAsString(formatAsHtml: true)));
 			dataObject.SetData(DataFormats.UnicodeText, autoConvert: false, m_lineCollectionDisplay.ListBox.GetSelectedLinesAsString(formatAsHtml: false));
-			Clipboard.SetDataObject(dataObject, copy: true);
+			Clipboard.SetDataObject(dataObject, copy: true, 5, 100);
 		}
 		catch (ExternalException e)
 		{

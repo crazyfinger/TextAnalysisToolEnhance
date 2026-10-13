@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using ToolBox;
 
 namespace TextAnalysisTool.NET;
 
@@ -89,12 +90,6 @@ internal sealed class EditLineDialog : Form
 
 	private void CopyButton_Click(object sender, EventArgs e)
 	{
-		try
-		{
-			Clipboard.SetText(m_textBox.Text);
-		}
-		catch
-		{
-		}
+		Utility.SafeSetClipboardText(m_textBox.Text);
 	}
 }

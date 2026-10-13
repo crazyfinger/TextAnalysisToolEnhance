@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
+using ToolBox;
 
 namespace TextAnalysisTool.NET;
 
@@ -142,7 +143,7 @@ internal sealed class MarkedLinesDisplay : Panel
 				stringBuilder.AppendLine(markedLineItem.LineNumber + ": " + markedLineItem.Text);
 			}
 		}
-		Clipboard.SetText(stringBuilder.ToString());
+		Utility.SafeSetClipboardText(stringBuilder.ToString());
 	}
 
 	private void LinesListBox_DrawItem(object sender, DrawItemEventArgs e)
