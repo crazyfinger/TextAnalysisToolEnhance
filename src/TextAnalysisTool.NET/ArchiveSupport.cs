@@ -168,7 +168,10 @@ internal static class ArchiveSupport
 			try
 			{
 				Directory.CreateDirectory(tempDir);
-				string dest = Path.Combine(tempDir, Path.GetFileName(memberName));
+				if (!IsSafeSubPath(tempDir, Path.GetFileName(memberName), out string dest))
+				{
+					return null;
+				}
 				using (ZipArchive zip = ZipFile.OpenRead(archivePath))
 				{
 					ZipArchiveEntry entry = zip.GetEntry(memberName);
@@ -289,6 +292,38 @@ internal static class ArchiveSupport
 		}
 	}
 
+	private static bool IsSafeSubPath(string basePath, string relativePath, out string fullPath)
+	{
+		fullPath = null;
+		if (string.IsNullOrEmpty(basePath) || string.IsNullOrEmpty(relativePath))
+		{
+			return false;
+		}
+		try
+		{
+			string fullBase = Path.GetFullPath(basePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			string candidate = Path.GetFullPath(Path.Combine(basePath, relativePath));
+			if (candidate.StartsWith(fullBase, StringComparison.OrdinalIgnoreCase))
+			{
+				fullPath = candidate;
+				return true;
+			}
+		}
+		catch (Exception)
+		{
+		}
+		return false;
+	}
+
+	private static string EscapeCommandLineArg(string arg)
+	{
+		if (string.IsNullOrEmpty(arg))
+		{
+			return "\"\"";
+		}
+		return "\"" + arg.Replace("\"", "\\\"") + "\"";
+	}
+
 	private static string Extract7zMember(string archivePath, string memberName, string tempDir)
 	{
 		string exe = Find7zExe();
@@ -296,8 +331,14 @@ internal static class ArchiveSupport
 		{
 			return null;
 		}
+		if (!IsSafeSubPath(tempDir, memberName, out string dest))
+		{
+			return null;
+		}
 		Directory.CreateDirectory(tempDir);
-		ProcessStartInfo psi = new ProcessStartInfo(exe, string.Format("x -y -o\"{0}\" \"{1}\" \"{2}\"", tempDir, archivePath, memberName))
+		string safeOutDir = tempDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		string args = string.Format("x -y -o{0} {1} {2}", EscapeCommandLineArg(safeOutDir), EscapeCommandLineArg(archivePath), EscapeCommandLineArg(memberName));
+		ProcessStartInfo psi = new ProcessStartInfo(exe, args)
 		{
 			UseShellExecute = false,
 			RedirectStandardOutput = true,
@@ -310,7 +351,6 @@ internal static class ArchiveSupport
 			p.StandardError.ReadToEnd();
 			p.WaitForExit();
 		}
-		string dest = Path.Combine(tempDir, memberName);
 		return File.Exists(dest) ? dest : null;
 	}
 }
