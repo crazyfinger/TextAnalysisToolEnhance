@@ -219,6 +219,60 @@ internal sealed class FilterCollection
 		}
 	}
 
+	public void RefreshLine(LineCollection sourceLines, int lineNumber)
+	{
+		if (m_filteredLines == null)
+		{
+			FilterLines(sourceLines);
+			return;
+		}
+
+		bool hasIncluding = false;
+		bool isIncluded = false;
+		bool isExcluded = false;
+
+		foreach (Filter filter in m_filters)
+		{
+			if (filter.Enabled)
+			{
+				if (filter.FilteredLines == null)
+				{
+					filter.FilterLinesNecessary(sourceLines);
+					filter.FilterLines();
+				}
+				else
+				{
+					filter.RefreshLine(lineNumber);
+				}
+
+				bool accepted = filter.FilteredLines != null && filter.FilteredLines.IsLineNumberInCollection(lineNumber);
+				if (filter.Excluding)
+				{
+					if (accepted)
+					{
+						isExcluded = true;
+					}
+				}
+				else
+				{
+					hasIncluding = true;
+					if (accepted)
+					{
+						isIncluded = true;
+					}
+				}
+			}
+		}
+
+		bool finalAccepted = !isExcluded && (!hasIncluding || isIncluded);
+		m_filteredLines.SetLineAccepted(lineNumber, finalAccepted);
+
+		if (m_refineFilter != null)
+		{
+			BeginAsyncRefine(m_filteredLines, m_refineFilter);
+		}
+	}
+
 	private void BeginAsyncRefine(LineCollection baseLines, Filter refineFilter)
 	{
 		LineCollection clone = new LineCollection(baseLines);

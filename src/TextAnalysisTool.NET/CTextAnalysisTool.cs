@@ -636,7 +636,12 @@ internal sealed class CTextAnalysisTool : IDisposable
 		string singleLine = newText.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ');
 		m_lineCollection.ReplaceLineText(lineNumber, singleLine);
 		m_lineCollection.RefreshLinesLength();
-		LinesChanged();
+		m_filterCollection.RefreshLine(m_lineCollection, lineNumber);
+		m_lineCollectionDisplay.ListBox.DisplayLines(m_lineCollection, m_filterCollection.FilteredLines, showOnlyFilteredLinesChanging: false);
+		m_mainWindow.SetStatusFilteredLines();
+		m_mainWindow.SetStatusTotalLines();
+		m_mainWindow.SetStatusSelection();
+		m_filterCollectionDisplay.UpdateDisplay();
 	}
 
 	public void OnRefineComputed(int generation, LineCollection refinedLines)

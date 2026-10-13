@@ -482,4 +482,25 @@ internal sealed class LineCollection
 		m_maxDisplayWidth = Line.DisplayWidthFromLineLength(m_linesInChunks, num);
 		m_lineNumbersInCollection = null;
 	}
+
+	public void SetLineAccepted(int lineNumber, bool accepted)
+	{
+		if (lineNumber >= 1 && lineNumber <= m_linesInChunks && lineNumber < m_members.Count)
+		{
+			bool current = m_members[lineNumber];
+			if (current != accepted)
+			{
+				m_members[lineNumber] = accepted;
+				if (accepted)
+				{
+					m_linesInCollection++;
+				}
+				else
+				{
+					m_linesInCollection--;
+				}
+				m_lineNumbersInCollection = null;
+			}
+		}
+	}
 }

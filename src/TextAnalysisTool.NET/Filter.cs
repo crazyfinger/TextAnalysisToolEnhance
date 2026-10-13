@@ -111,6 +111,24 @@ internal abstract class Filter
 		}
 	}
 
+	public bool RefreshLine(int lineNumber)
+	{
+		if (m_sourceLines == null || m_filteredLines == null || !Enabled)
+		{
+			return false;
+		}
+		bool oldAccepts = m_filteredLines.IsLineNumberInCollection(lineNumber);
+		InitializeAccepts();
+		bool newAccepts = Accepts(m_sourceLines, lineNumber);
+		UninitializeAccepts();
+		if (oldAccepts != newAccepts)
+		{
+			m_filteredLines.SetLineAccepted(lineNumber, newAccepts);
+			return true;
+		}
+		return false;
+	}
+
 	public virtual bool MarkersChanged(int marker)
 	{
 		return false;
