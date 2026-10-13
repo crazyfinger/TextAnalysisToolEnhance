@@ -724,11 +724,11 @@ internal static class LogMergeEngine
 
 	private static bool PassesTimeFilter(DateTime ts, MergeOptions options)
 	{
-		if (options.From.HasValue && ts <= options.From.Value)
+		if (options.From.HasValue && ts < options.From.Value)
 		{
 			return false;
 		}
-		if (options.To.HasValue && ts >= options.To.Value)
+		if (options.To.HasValue && ts > options.To.Value)
 		{
 			return false;
 		}
