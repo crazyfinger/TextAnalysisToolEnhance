@@ -485,7 +485,7 @@ internal sealed class MainWindow : Form
 		};
 	}
 
-	public void CreatePluginSettingsMenu(ArrayList plugins)
+	public void CreatePluginSettingsMenu(IReadOnlyList<PluginWrapper> plugins)
 	{
 		FullyEnabledMenuItem fullyEnabledMenuItem = new FullyEnabledMenuItem("Plug-in &Settings");
 		foreach (PluginWrapper plugin in plugins)

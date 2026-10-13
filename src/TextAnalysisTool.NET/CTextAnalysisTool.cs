@@ -56,7 +56,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 
 	private Filter m_findFilter;
 
-	private readonly ArrayList m_plugins;
+	private readonly List<PluginWrapper> m_plugins;
 
 	public const int MaxPathShownInError = 50;
 
@@ -79,7 +79,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 		}
 	}
 
-	public IList Plugins => ArrayList.ReadOnly(m_plugins);
+	public IReadOnlyList<PluginWrapper> Plugins => m_plugins;
 
 	public bool ReloadLinesPossible => m_currentFileName != null;
 
@@ -123,7 +123,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 		m_lineSourceShort = "[No file loaded]";
 		UpdateUIFonts(Settings.FontSize, Settings.ZoomPercent);
 		SetCurrentEncoding(Settings.DefaultEncodingIsSystemDefault ? null : Settings.DefaultEncodingName);
-		m_plugins = new ArrayList();
+		m_plugins = new List<PluginWrapper>();
 		SetMainWindowTitle();
 	}
 
@@ -363,7 +363,7 @@ internal sealed class CTextAnalysisTool : IDisposable
 		}
 		try
 		{
-			ArrayList arrayList = new ArrayList();
+			List<Filter> arrayList = new List<Filter>();
 			bool flag = false;
 			bool showOnlyFilteredLines = false;
 			bool flag2 = false;

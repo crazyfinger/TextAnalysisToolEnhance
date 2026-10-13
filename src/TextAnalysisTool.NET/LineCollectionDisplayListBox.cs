@@ -369,9 +369,9 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 			return;
 		}
 		bool addedAny = false;
-		foreach (object pluginObj in m_textAnalysisTool.Plugins)
+		foreach (PluginWrapper plugin in m_textAnalysisTool.Plugins)
 		{
-			if (pluginObj is not PluginWrapper plugin)
+			if (plugin == null)
 			{
 				continue;
 			}

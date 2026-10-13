@@ -10,7 +10,7 @@ internal sealed class FilterCollection
 {
 	private readonly CTextAnalysisTool m_textAnalysisTool;
 
-	private readonly ArrayList m_filters;
+	private readonly List<Filter> m_filters;
 
 	private LineCollection m_filteredLines;
 
@@ -22,7 +22,7 @@ internal sealed class FilterCollection
 
 	private readonly object m_refineLock = new object();
 
-	public IList Filters => ArrayList.ReadOnly(m_filters);
+	public IReadOnlyList<Filter> Filters => m_filters;
 
 	public bool IsDirty
 	{
@@ -48,7 +48,7 @@ internal sealed class FilterCollection
 	public FilterCollection(CTextAnalysisTool textAnalysisTool)
 	{
 		m_textAnalysisTool = textAnalysisTool;
-		m_filters = new ArrayList();
+		m_filters = new List<Filter>();
 		m_isDirty = false;
 	}
 
@@ -110,7 +110,7 @@ internal sealed class FilterCollection
 		FiltersChanged(destructive: true);
 	}
 
-	public void AddRange(IEnumerable filters)
+	public void AddRange(IEnumerable<Filter> filters)
 	{
 		foreach (Filter filter in filters)
 		{
@@ -134,7 +134,7 @@ internal sealed class FilterCollection
 		FiltersChanged(destructive: true);
 	}
 
-	public void ReplaceAll(IEnumerable filters)
+	public void ReplaceAll(IEnumerable<Filter> filters)
 	{
 		m_filters.Clear();
 		foreach (Filter filter in filters)
@@ -203,15 +203,15 @@ internal sealed class FilterCollection
 	public void FilterLines(LineCollection sourceLines)
 	{
 		WorkItemRunner workItemRunner = new WorkItemRunner();
-		ArrayList arrayList = new ArrayList(m_filters.Count);
+		List<WaitCallback> callbacks = new List<WaitCallback>(m_filters.Count);
 		foreach (Filter filter in m_filters)
 		{
 			if (filter.FilterLinesNecessary(sourceLines))
 			{
-				arrayList.Add(new WaitCallback(new FilterLinesWaitCallback(filter).Run));
+				callbacks.Add(new WaitCallback(new FilterLinesWaitCallback(filter).Run));
 			}
 		}
-		workItemRunner.RunWorkItemsToCompletion(arrayList);
+		workItemRunner.RunWorkItemsToCompletion(callbacks);
 		m_filteredLines = new LineCollection(sourceLines, m_filters);
 		if (m_refineFilter != null)
 		{

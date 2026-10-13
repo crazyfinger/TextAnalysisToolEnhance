@@ -38,7 +38,7 @@ internal class FilterFindDialogBase : Form
 
 	protected List<Control> m_minHeightControls = new List<Control>();
 
-	private static ArrayList previousTextEntries = new ArrayList();
+	private static readonly List<string> previousTextEntries = new List<string>();
 
 	public Filter FilterObject => m_filter;
 
