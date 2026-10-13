@@ -101,6 +101,10 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 
 	private float m_characterWidthInPixels;
 
+	private float m_asciiCharWidthInPixels;
+
+	private float m_cjkCharWidthInPixels;
+
 	private int m_cachedMetaDataWidth = -1;
 
 	private int m_cachedMetaDataDigits = -1;
@@ -189,10 +193,13 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		{
 			BeginUpdate();
 			int num = 100;
-			Size size = TextRenderer.MeasureText(string.Empty.PadRight(num, '宽'), value);
-			ItemHeight = size.Height;
-			m_characterWidthInPixels = (float)size.Width / (float)num;
-			m_maxWidthOfTextInCharacters = (int)(32000f / m_characterWidthInPixels);
+			Size sizeCjk = TextRenderer.MeasureText(string.Empty.PadRight(num, '宽'), value);
+			Size sizeAscii = TextRenderer.MeasureText(string.Empty.PadRight(num, '0'), value);
+			ItemHeight = sizeCjk.Height;
+			m_cjkCharWidthInPixels = (float)sizeCjk.Width / (float)num;
+			m_asciiCharWidthInPixels = (float)sizeAscii.Width / (float)num;
+			m_characterWidthInPixels = m_asciiCharWidthInPixels;
+			m_maxWidthOfTextInCharacters = Math.Max(100, (int)(31800f / m_asciiCharWidthInPixels));
 			base.Font = value;
 			EndUpdate();
 			this.ZoomLevelChanged?.Invoke(this, new ZoomLevelEventArgs(ZoomPercent));
@@ -582,8 +589,13 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		}
 		BeginUpdate();
 		int num = (flag ? base.TopIndex : 0);
-		string text = string.Empty.PadRight(Math.Min(32000, currentDisplayLines.MaxDisplayWidth), '宽');
-		base.HorizontalExtent = Math.Min(32000, TextRenderer.MeasureText(text, Font).Width);
+		int numberDigits = Settings.ShowLineNumbers ? m_maximumLineNumberDigits : 0;
+		bool includeMarkers = Settings.ShowMarkersColumn == ShowMarkersState.Always || (Settings.ShowMarkersColumn == ShowMarkersState.WhenInUse && LineCollection.MarkersInUse);
+		int metaWidth = GetMetaDataWidth(null, numberDigits, includeMarkers, Font) + 6;
+		int maxSafeChars = Math.Max(100, (int)((32000 - metaWidth) / m_characterWidthInPixels));
+		int maxChars = Math.Min(maxSafeChars, currentDisplayLines.MaxDisplayWidth);
+		int textPixelWidth = (int)Math.Ceiling(maxChars * m_characterWidthInPixels);
+		base.HorizontalExtent = Math.Min(32000, metaWidth + textPixelWidth);
 		CallSendMessage(423u, currentDisplayLines.Count, 0);
 		m_scrollBar.Maximum = currentDisplayLines.Count;
 		base.TopIndex = num;
@@ -741,8 +753,51 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		m_cachedMetaDataDigits = numberDigits;
 		m_cachedIncludeMarkers = includeMarkers;
 		m_cachedMetaDataFont = font;
-		m_cachedMetaDataWidth = string.IsNullOrEmpty(sampleString) ? 0 : TextRenderer.MeasureText(sampleString, font).Width;
+		if (string.IsNullOrEmpty(sampleString))
+		{
+			int totalChars = numberDigits + (includeMarkers ? 9 : 0);
+			m_cachedMetaDataWidth = (totalChars > 0) ? (int)Math.Ceiling(totalChars * m_characterWidthInPixels) : 0;
+		}
+		else
+		{
+			m_cachedMetaDataWidth = TextRenderer.MeasureText(sampleString, font).Width;
+		}
 		return m_cachedMetaDataWidth;
+	}
+
+	private static int GetVisualColumns(string text)
+	{
+		if (string.IsNullOrEmpty(text))
+		{
+			return 0;
+		}
+		int cols = 0;
+		for (int i = 0; i < text.Length; i++)
+		{
+			cols += (text[i] > 127) ? 2 : 1;
+		}
+		return cols;
+	}
+
+	private static string TruncateTextToVisualColumns(string text, int maxVisualColumns)
+	{
+		const string notice = "[TextAnalysisTool.NET could not display the whole line. Filtering, copying, and searching are unaffected.]";
+		int noticeCols = GetVisualColumns(notice) + 5;
+		int targetContentCols = Math.Max(0, maxVisualColumns - noticeCols);
+
+		int currentCols = 0;
+		int cutIndex = 0;
+		for (int i = 0; i < text.Length; i++)
+		{
+			int charCols = (text[i] > 127) ? 2 : 1;
+			if (currentCols + charCols > targetContentCols)
+			{
+				break;
+			}
+			currentCols += charCols;
+			cutIndex = i + 1;
+		}
+		return text.Substring(0, cutIndex) + " ... " + notice;
 	}
 
 	protected override void OnDrawItem(DrawItemEventArgs e)
@@ -767,9 +822,10 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 			e.Graphics.FillRectangle(m_brush, rect);
 			m_brush.Color = Settings.GrayText;
 			e.Graphics.DrawString(lineMetaDataString, e.Font, m_brush, rect.X + num, rect.Y, m_stringFormat);
-			if (m_maxWidthOfTextInCharacters < text.Length)
+			int maxSafeVisualColumns = Math.Max(100, (int)((32000 - metaDataWidth - num * 2) / m_characterWidthInPixels));
+			if (GetVisualColumns(text) > maxSafeVisualColumns)
 			{
-				text = string.Format("{0} ... {1}", text.Substring(0, m_maxWidthOfTextInCharacters - "[TextAnalysisTool.NET could not display the whole line. Filtering, copying, and searching are unaffected.]".Length - "{0} ... {1}".Length), "[TextAnalysisTool.NET could not display the whole line. Filtering, copying, and searching are unaffected.]");
+				text = TruncateTextToVisualColumns(text, maxSafeVisualColumns);
 			}
 			TextRenderer.DrawText(e.Graphics, text, e.Font, rectangle, foreColor, backColor, TextFormatFlags.NoPrefix);
 			new DrawItemEventArgs(e.Graphics, e.Font, rect2, e.Index, e.State, e.ForeColor, e.BackColor).DrawFocusRectangle();

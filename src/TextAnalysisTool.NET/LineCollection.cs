@@ -16,9 +16,9 @@ internal sealed class LineCollection
 
 		public string Text { get; private set; }
 
-		public int Length => Text.Length + NumberOfTabs * (Settings.TabSize - 1);
+		private int m_visualLength;
 
-		private int NumberOfTabs { get; set; }
+		public int Length => m_visualLength;
 
 		public bool MarkedByAny => m_marks > 0;
 
@@ -30,8 +30,31 @@ internal sealed class LineCollection
 
 		public int RefreshLength()
 		{
-			NumberOfTabs = ((Settings.TabSize != 1) ? Text.Count('\t') : 0);
-			return Length;
+			if (Text == null)
+			{
+				m_visualLength = 0;
+				return 0;
+			}
+			int tabExtra = (Settings.TabSize > 1) ? (Settings.TabSize - 1) : 0;
+			int len = 0;
+			for (int i = 0; i < Text.Length; i++)
+			{
+				char c = Text[i];
+				if (c == '\t')
+				{
+					len += 1 + tabExtra;
+				}
+				else if (c > 127)
+				{
+					len += 2;
+				}
+				else
+				{
+					len += 1;
+				}
+			}
+			m_visualLength = len;
+			return m_visualLength;
 		}
 
 		public bool MarkedBy(int i)
