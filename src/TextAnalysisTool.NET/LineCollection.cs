@@ -9,7 +9,8 @@ internal sealed class LineCollection
 {
 	internal struct Line
 	{
-		private static char[] stringBuffer = new char[0];
+		[ThreadStatic]
+		private static char[] t_stringBuffer;
 
 		private byte m_marks;
 
@@ -89,20 +90,21 @@ internal sealed class LineCollection
 		{
 			bool flag = numberDigits > 0;
 			int num = numberDigits + (flag ? 1 : 0) + (includeMarkers ? 9 : 0) + Length;
-			if (stringBuffer.Length < num)
+			if (t_stringBuffer == null || t_stringBuffer.Length < num)
 			{
-				stringBuffer = new char[num];
+				t_stringBuffer = new char[Math.Max(num, 256)];
 			}
+			char[] buffer = t_stringBuffer;
 			int num2 = 0;
 			if (flag)
 			{
-				num2 = WritePaddedLineNumberToCharArray(lineNumber, numberDigits, stringBuffer);
-				stringBuffer[num2++] = ' ';
+				num2 = WritePaddedLineNumberToCharArray(lineNumber, numberDigits, buffer);
+				buffer[num2++] = ' ';
 			}
 			if (includeMarkers)
 			{
-				num2 = WriteMarkersToCharArray(stringBuffer, num2);
-				stringBuffer[num2++] = ' ';
+				num2 = WriteMarkersToCharArray(buffer, num2);
+				buffer[num2++] = ' ';
 			}
 			for (int i = 0; i < Text.Length; i++)
 			{
@@ -114,7 +116,7 @@ internal sealed class LineCollection
 					c = ' ';
 					for (int j = 0; j < Settings.TabSize - 1; j++)
 					{
-						stringBuffer[num2] = c;
+						buffer[num2] = c;
 						num2++;
 					}
 					break;
@@ -123,10 +125,10 @@ internal sealed class LineCollection
 					c = '\ufffd';
 					break;
 				}
-				stringBuffer[num2] = c;
+				buffer[num2] = c;
 				num2++;
 			}
-			return new string(stringBuffer, 0, num2);
+			return new string(buffer, 0, num2);
 		}
 
 		public static int DisplayWidthFromLineLength(int maxLineNumber, int maxLineLength)
