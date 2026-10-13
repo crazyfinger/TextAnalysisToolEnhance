@@ -301,11 +301,31 @@ internal static class LogMergeEngine
 			// Unified monotonic progress: sorting occupies 0..90% (real byte
 			// progress), the k-way merge occupies 90..100% (real line progress).
 			// Nothing ever jumps backward.
-			Parallel.For(0, sources.Count, new ParallelOptions { MaxDegreeOfParallelism = MergeParallelism }, i =>
+			try
 			{
-				results[i] = SortSource(sources[i], options, tempFiles, sortProgress, sizes[i]);
-				Interlocked.Add(ref totalLines, results[i].LineCount);
-			});
+				Parallel.For(0, sources.Count, new ParallelOptions { MaxDegreeOfParallelism = MergeParallelism }, i =>
+				{
+					results[i] = SortSource(sources[i], options, tempFiles, sortProgress, sizes[i], isCancelled);
+					Interlocked.Add(ref totalLines, results[i].LineCount);
+				});
+			}
+			catch (AggregateException ex)
+			{
+				bool allCancelled = true;
+				foreach (Exception inner in ex.Flatten().InnerExceptions)
+				{
+					if (!(inner is OperationCanceledException))
+					{
+						allCancelled = false;
+						break;
+					}
+				}
+				if (allCancelled && ex.InnerExceptions.Count > 0)
+				{
+					throw new OperationCanceledException();
+				}
+				throw;
+			}
 
 			throttled(90);
 			GlobalMerge(results, options, totalLines, throttled, isCancelled);
@@ -333,7 +353,7 @@ internal static class LogMergeEngine
 	{
 		long sourceSize = GetSourceSize(source);
 		SortProgress progress = new SortProgress(sourceSize, reportProgress);
-		List<SortedItem> items = LoadAndSort(source, options, out long lineCount, progress, sourceSize);
+		List<SortedItem> items = LoadAndSort(source, options, out long lineCount, progress, sourceSize, isCancelled);
 		int total = items.Count;
 		using (StreamWriter writer = new StreamWriter(options.OutputPath, false, new UTF8Encoding(true), StreamBufferSize))
 		{
@@ -368,13 +388,13 @@ internal static class LogMergeEngine
 		reportProgress?.Invoke(100);
 	}
 
-	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize)
+	private static SortedSource SortSource(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize, Func<bool> isCancelled)
 	{
 		if (ShouldSortInMemory(source))
 		{
-			return new SortedSource { Memory = LoadAndSort(source, options, out long count, progress, sourceSize), LineCount = count };
+			return new SortedSource { Memory = LoadAndSort(source, options, out long count, progress, sourceSize, isCancelled), LineCount = count };
 		}
-		return SortSourceToTemp(source, options, tempFiles, progress, sourceSize);
+		return SortSourceToTemp(source, options, tempFiles, progress, sourceSize, isCancelled);
 	}
 
 	private static long GetSourceSize(MergeSource source)
@@ -408,7 +428,7 @@ internal static class LogMergeEngine
 		return true;
 	}
 
-	private static List<SortedItem> LoadAndSort(MergeSource source, MergeOptions options, out long lineCount, SortProgress progress, long sourceSize)
+	private static List<SortedItem> LoadAndSort(MergeSource source, MergeOptions options, out long lineCount, SortProgress progress, long sourceSize, Func<bool> isCancelled)
 	{
 		List<SortedItem> items = new List<SortedItem>();
 		int index = 0;
@@ -429,11 +449,15 @@ internal static class LogMergeEngine
 					items.Add(new SortedItem { Timestamp = DateTime.MaxValue, Index = index, Line = line });
 				}
 				index++;
-				if (seekable && (index & 0x1FF) == 0)
+				if ((index & 0x1FF) == 0)
 				{
-					long pos = ((StreamReader)reader).BaseStream.Position;
-					progress?.AddBytes(pos - lastPos);
-					lastPos = pos;
+					ThrowIfCancelled(isCancelled);
+					if (seekable)
+					{
+						long pos = ((StreamReader)reader).BaseStream.Position;
+						progress?.AddBytes(pos - lastPos);
+						lastPos = pos;
+					}
 				}
 			}
 		}
@@ -450,7 +474,7 @@ internal static class LogMergeEngine
 		return items;
 	}
 
-	private static SortedSource SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize)
+	private static SortedSource SortSourceToTemp(MergeSource source, MergeOptions options, List<string> tempFiles, SortProgress progress, long sourceSize, Func<bool> isCancelled)
 	{
 		List<SortedItem> run = new List<SortedItem>(RunLineCap);
 		List<string> runFiles = new List<string>();
@@ -476,11 +500,15 @@ internal static class LogMergeEngine
 					lineCount++;
 				}
 				index++;
-				if (seekable && (index & 0x1FF) == 0)
+				if ((index & 0x1FF) == 0)
 				{
-					long pos = ((StreamReader)reader).BaseStream.Position;
-					progress?.AddBytes(pos - lastPos);
-					lastPos = pos;
+					ThrowIfCancelled(isCancelled);
+					if (seekable)
+					{
+						long pos = ((StreamReader)reader).BaseStream.Position;
+						progress?.AddBytes(pos - lastPos);
+						lastPos = pos;
+					}
 				}
 				if (run.Count >= RunLineCap)
 				{
@@ -504,7 +532,7 @@ internal static class LogMergeEngine
 		}
 
 		string sortedPath = NewTempFile(tempFiles);
-		MergeRuns(runFiles, sortedPath);
+		MergeRuns(runFiles, sortedPath, isCancelled);
 		foreach (string runFile in runFiles)
 		{
 			try
@@ -540,7 +568,7 @@ internal static class LogMergeEngine
 		run.Clear();
 	}
 
-	private static void MergeRuns(List<string> runFiles, string sortedPath)
+	private static void MergeRuns(List<string> runFiles, string sortedPath, Func<bool> isCancelled)
 	{
 		BinaryHeap<RunItem> heap = new BinaryHeap<RunItem>((x, y) =>
 		{
@@ -564,10 +592,16 @@ internal static class LogMergeEngine
 
 			using (StreamWriter writer = new StreamWriter(sortedPath, false, new UTF8Encoding(false), StreamBufferSize))
 			{
+				long written = 0;
 				while (heap.Count > 0)
 				{
 					RunItem item = heap.Pop();
 					writer.WriteLine(item.Line);
+					written++;
+					if ((written & 0xFFF) == 0)
+					{
+						ThrowIfCancelled(isCancelled);
+					}
 					string next = readers[item.RunIndex].ReadLine();
 					if (next != null)
 					{

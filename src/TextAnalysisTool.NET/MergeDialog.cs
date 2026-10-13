@@ -927,6 +927,15 @@ private Button MakeDetectButton()
 		}
 		catch (Exception ex)
 		{
+			if (IsCancellationException(ex))
+			{
+				BeginInvoke((MethodInvoker)delegate
+				{
+					m_statusLabel.Text = "Cancelled.";
+					SetRunning(false);
+				});
+				return;
+			}
 			BeginInvoke((MethodInvoker)delegate
 			{
 				m_statusLabel.Text = "Error: " + ex.Message;
@@ -1085,5 +1094,30 @@ private Button MakeDetectButton()
 		}
 		int checkBoxAllowance = Math.Max(24, m_sourceList.ItemHeight * 2);
 		m_sourceList.HorizontalExtent = textWidth + checkBoxAllowance;
+	}
+
+	private static bool IsCancellationException(Exception ex)
+	{
+		if (ex is OperationCanceledException)
+		{
+			return true;
+		}
+		if (ex is AggregateException agg)
+		{
+			var inners = agg.Flatten().InnerExceptions;
+			if (inners.Count == 0)
+			{
+				return false;
+			}
+			foreach (Exception inner in inners)
+			{
+				if (!(inner is OperationCanceledException))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 }
