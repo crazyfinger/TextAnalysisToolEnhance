@@ -245,4 +245,18 @@ internal sealed class RefineFilterControl : Panel
 	{
 		ClearRefine();
 	}
+
+	protected override void Dispose(bool disposing)
+	{
+		if (disposing)
+		{
+			if (m_debounceTimer != null)
+			{
+				m_debounceTimer.Stop();
+				m_debounceTimer.Tick -= m_debounceTimer_Tick;
+				m_debounceTimer.Dispose();
+			}
+		}
+		base.Dispose(disposing);
+	}
 }
