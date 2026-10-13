@@ -101,6 +101,14 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 
 	private float m_characterWidthInPixels;
 
+	private int m_cachedMetaDataWidth = -1;
+
+	private int m_cachedMetaDataDigits = -1;
+
+	private bool m_cachedIncludeMarkers;
+
+	private Font m_cachedMetaDataFont;
+
 	private ToolStripMenuItem m_markerMenu;
 
 	private ToolStripMenuItem m_hideBeforeItem;
@@ -720,17 +728,35 @@ internal sealed class LineCollectionDisplayListBox : ListBox
 		MarkersChanged?.Invoke(this, EventArgs.Empty);
 	}
 
+	private int GetMetaDataWidth(string sampleString, int numberDigits, bool includeMarkers, Font font)
+	{
+		if (m_cachedMetaDataWidth >= 0 &&
+			m_cachedMetaDataDigits == numberDigits &&
+			m_cachedIncludeMarkers == includeMarkers &&
+			m_cachedMetaDataFont == font)
+		{
+			return m_cachedMetaDataWidth;
+		}
+
+		m_cachedMetaDataDigits = numberDigits;
+		m_cachedIncludeMarkers = includeMarkers;
+		m_cachedMetaDataFont = font;
+		m_cachedMetaDataWidth = string.IsNullOrEmpty(sampleString) ? 0 : TextRenderer.MeasureText(sampleString, font).Width;
+		return m_cachedMetaDataWidth;
+	}
+
 	protected override void OnDrawItem(DrawItemEventArgs e)
 	{
 		if (-1 != e.Index && e.Graphics.IsVisible(e.Bounds))
 		{
 			int lineNumber = CurrentDisplayLines.LineNumbersInCollection[e.Index];
+			int numberDigits = Settings.ShowLineNumbers ? m_maximumLineNumberDigits : 0;
 			bool includeMarkers = Settings.ShowMarkersColumn == ShowMarkersState.Always || (Settings.ShowMarkersColumn == ShowMarkersState.WhenInUse && LineCollection.MarkersInUse);
-			string lineMetaDataString = m_sourceLines.GetLineMetaDataString(lineNumber, Settings.ShowLineNumbers ? m_maximumLineNumberDigits : 0, includeMarkers);
+			string lineMetaDataString = m_sourceLines.GetLineMetaDataString(lineNumber, numberDigits, includeMarkers);
 			string text = m_sourceLines.GetLineDisplayString(lineNumber, 0, includeMarkers: false);
 			int num = 3;
-			Size size = TextRenderer.MeasureText(lineMetaDataString, e.Font);
-			Rectangle rect = new Rectangle(e.Bounds.X, e.Bounds.Y, size.Width + num * 2, size.Height);
+			int metaDataWidth = GetMetaDataWidth(lineMetaDataString, numberDigits, includeMarkers, e.Font);
+			Rectangle rect = new Rectangle(e.Bounds.X, e.Bounds.Y, metaDataWidth + num * 2, e.Bounds.Height);
 			Rectangle rectangle = new Rectangle(rect.Right, e.Bounds.Y, e.Bounds.Width - rect.Width, e.Bounds.Height);
 			Rectangle rect2 = Rectangle.Intersect(rectangle, Rectangle.Ceiling(e.Graphics.VisibleClipBounds));
 			bool selected = (DrawItemState.Selected & e.State) != 0;
