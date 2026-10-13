@@ -39,13 +39,15 @@ internal sealed class EditLineDialog : Form
 			Dock = DockStyle.Fill,
 			Text = originalText
 		};
-		m_textBox.Font = new Font(m_textBox.Font.FontFamily, m_textBox.Font.Size + 4f);
+		m_textBox.Font = new Font(m_textBox.Font.FontFamily, m_textBox.Font.Size + 6f);
 
 		Button copyButton = new Button
 		{
 			Text = "&Copy",
 			AutoSize = true,
-			Padding = new Padding(20, 4, 20, 4),
+			MinimumSize = new Size(140, 40),
+			Padding = new Padding(14, 5, 14, 5),
+			Margin = new Padding(0, 0, 20, 0),
 			UseVisualStyleBackColor = true,
 			TabStop = false
 		};
@@ -53,9 +55,11 @@ internal sealed class EditLineDialog : Form
 
 		Button confirmButton = new Button
 		{
-			Text = "&Confirm",
+			Text = "&OK",
 			AutoSize = true,
-			Padding = new Padding(20, 4, 20, 4),
+			MinimumSize = new Size(140, 40),
+			Padding = new Padding(14, 5, 14, 5),
+			Margin = new Padding(20, 0, 0, 0),
 			UseVisualStyleBackColor = true,
 			DialogResult = DialogResult.OK
 		};
@@ -66,7 +70,7 @@ internal sealed class EditLineDialog : Form
 			AutoSize = true,
 			ColumnCount = 4,
 			RowCount = 1,
-			Padding = new Padding(6, 4, 6, 4)
+			Padding = new Padding(6, 14, 6, 14)
 		};
 		buttonsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
 		buttonsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -78,6 +82,7 @@ internal sealed class EditLineDialog : Form
 		base.Controls.Add(m_textBox);
 		base.Controls.Add(buttonsPanel);
 		base.CancelButton = confirmButton;
+		Shown += (_, _) => BeginInvoke((Action)(() => m_textBox.Select(m_textBox.Text.Length, m_textBox.Text.Length)));
 		ResumeLayout(performLayout: false);
 		PerformLayout();
 	}

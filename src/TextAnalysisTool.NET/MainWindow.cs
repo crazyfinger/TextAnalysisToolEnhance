@@ -128,7 +128,9 @@ internal sealed class MainWindow : Form
 
 	private readonly Splitter m_filterSplitter;
 
-	private bool m_initialMarkedSplitDone;
+	private bool m_isAdjustingMarkedLinesSize;
+
+	private bool m_isFilterSplitterDragging;
 
 	private readonly StatusStrip m_statusStrip;
 
@@ -399,10 +401,13 @@ internal sealed class MainWindow : Form
 		m_markedLinesDisplay.Dock = DockStyle.Fill;
 		m_filterPane = new Panel();
 		m_filterPane.Dock = DockStyle.Fill;
+		m_filterPane.Resize += (s, e) => UpdateMarkedLinesDisplaySize();
 		m_filterSplitter = new Splitter();
 		m_filterSplitter.Width = (int)(4f * dPIScalingFactor);
 		m_filterSplitter.Height = (int)(4f * dPIScalingFactor);
 		m_filterSplitter.Cursor = Cursors.SizeWE;
+		m_filterSplitter.SplitterMoving += OnFilterSplitterMoving;
+		m_filterSplitter.SplitterMoved += OnFilterSplitterMoved;
 		m_lineCollectionDisplay.ListBox.MarkersChanged += LineCollectionDisplayListBox_MarkersChanged;
 		m_filterPane.Controls.Add(m_filterCollectionDisplay);
 		m_filterPane.Controls.Add(m_filterSplitter);
@@ -473,7 +478,11 @@ internal sealed class MainWindow : Form
 		// When opened from the command line / shell, a file is loaded before the
 		// window is shown, so the LoadLines Focus() has no effect. Ensure the main
 		// line list gets keyboard focus once the window is displayed.
-		Shown += (s, e) => m_lineCollectionDisplay.ListBox.Focus();
+		Shown += (s, e) =>
+		{
+			UpdateMarkedLinesDisplaySize();
+			m_lineCollectionDisplay.ListBox.Focus();
+		};
 	}
 
 	public void CreatePluginSettingsMenu(ArrayList plugins)
@@ -952,7 +961,6 @@ internal sealed class MainWindow : Form
 	private void UpdateFilterPaneLayout(DockStyle dockStyle)
 	{
 		m_filterPane.SuspendLayout();
-		m_initialMarkedSplitDone = false;
 		float dPIScalingFactor = ControlExtensions.GetDPIScalingFactor();
 		if (dockStyle == DockStyle.Left || dockStyle == DockStyle.Right)
 		{
@@ -960,7 +968,6 @@ internal sealed class MainWindow : Form
 			m_filterSplitter.Height = (int)(4f * dPIScalingFactor);
 			m_filterSplitter.Cursor = Cursors.SizeNS;
 			m_markedLinesDisplay.Dock = DockStyle.Bottom;
-			m_markedLinesDisplay.Height = ((m_filterPane.ClientSize.Height > 0) ? (m_filterPane.ClientSize.Height / 2) : ((int)(180f * dPIScalingFactor)));
 		}
 		else
 		{
@@ -968,8 +975,8 @@ internal sealed class MainWindow : Form
 			m_filterSplitter.Width = (int)(4f * dPIScalingFactor);
 			m_filterSplitter.Cursor = Cursors.SizeWE;
 			m_markedLinesDisplay.Dock = DockStyle.Right;
-			m_markedLinesDisplay.Width = ((m_filterPane.ClientSize.Width > 0) ? (m_filterPane.ClientSize.Width / 2) : ((int)(240f * dPIScalingFactor)));
 		}
+		UpdateMarkedLinesDisplaySize();
 		m_filterPane.ResumeLayout(performLayout: true);
 	}
 
@@ -1310,6 +1317,106 @@ internal sealed class MainWindow : Form
 		}
 	}
 
+	private void OnFilterSplitterMoving(object sender, SplitterEventArgs e)
+	{
+		m_isFilterSplitterDragging = true;
+		if (m_filterSplitter.Dock == DockStyle.Right)
+		{
+			int availableWidth = m_filterPane.ClientSize.Width - m_filterSplitter.Width;
+			if (availableWidth > 40)
+			{
+				int newWidth = m_filterPane.ClientSize.Width - e.X;
+				int percent = 100 * newWidth / availableWidth;
+				Settings.MarkedLinesSplitterPercent = percent;
+			}
+		}
+		else if (m_filterSplitter.Dock == DockStyle.Bottom)
+		{
+			int availableHeight = m_filterPane.ClientSize.Height - m_refineFilterControl.Height - m_filterSplitter.Height;
+			if (availableHeight > 40)
+			{
+				int newHeight = m_filterPane.ClientSize.Height - e.Y;
+				int percent = 100 * newHeight / availableHeight;
+				Settings.MarkedLinesSplitterPercent = percent;
+			}
+		}
+	}
+
+	private void OnFilterSplitterMoved(object sender, SplitterEventArgs e)
+	{
+		m_isFilterSplitterDragging = false;
+		UpdateMarkedLinesSplitterPercentFromCurrentSize();
+	}
+
+	private void UpdateMarkedLinesSplitterPercentFromCurrentSize()
+	{
+		if (m_filterPane == null || m_markedLinesDisplay == null || m_filterSplitter == null)
+		{
+			return;
+		}
+		if (m_filterSplitter.Dock == DockStyle.Right)
+		{
+			int availableWidth = m_filterPane.ClientSize.Width - m_filterSplitter.Width;
+			if (availableWidth > 40)
+			{
+				int percent = 100 * m_markedLinesDisplay.Width / availableWidth;
+				Settings.MarkedLinesSplitterPercent = percent;
+			}
+		}
+		else if (m_filterSplitter.Dock == DockStyle.Bottom)
+		{
+			int availableHeight = m_filterPane.ClientSize.Height - m_refineFilterControl.Height - m_filterSplitter.Height;
+			if (availableHeight > 40)
+			{
+				int percent = 100 * m_markedLinesDisplay.Height / availableHeight;
+				Settings.MarkedLinesSplitterPercent = percent;
+			}
+		}
+	}
+
+	private void UpdateMarkedLinesDisplaySize()
+	{
+		if (m_isAdjustingMarkedLinesSize || m_isFilterSplitterDragging || m_filterPane == null || m_markedLinesDisplay == null || m_filterSplitter == null)
+		{
+			return;
+		}
+		m_isAdjustingMarkedLinesSize = true;
+		try
+		{
+			int percent = Settings.MarkedLinesSplitterPercent;
+			if (m_filterSplitter.Dock == DockStyle.Right)
+			{
+				int availableWidth = m_filterPane.ClientSize.Width - m_filterSplitter.Width;
+				if (availableWidth > 40)
+				{
+					int targetWidth = availableWidth * percent / 100;
+					targetWidth = Math.Max(20, Math.Min(targetWidth, availableWidth - 20));
+					if (m_markedLinesDisplay.Width != targetWidth)
+					{
+						m_markedLinesDisplay.Width = targetWidth;
+					}
+				}
+			}
+			else if (m_filterSplitter.Dock == DockStyle.Bottom)
+			{
+				int availableHeight = m_filterPane.ClientSize.Height - m_refineFilterControl.Height - m_filterSplitter.Height;
+				if (availableHeight > 40)
+				{
+					int targetHeight = availableHeight * percent / 100;
+					targetHeight = Math.Max(20, Math.Min(targetHeight, availableHeight - 20));
+					if (m_markedLinesDisplay.Height != targetHeight)
+					{
+						m_markedLinesDisplay.Height = targetHeight;
+					}
+				}
+			}
+		}
+		finally
+		{
+			m_isAdjustingMarkedLinesSize = false;
+		}
+	}
+
 	protected override void OnLayout(LayoutEventArgs e)
 	{
 		if (m_splitter.Dock == DockStyle.Top || m_splitter.Dock == DockStyle.Bottom)
@@ -1321,18 +1428,7 @@ internal sealed class MainWindow : Form
 			m_splitter.SplitPosition = LineCollectionDisplayWidth;
 		}
 		base.OnLayout(e);
-		if (!m_initialMarkedSplitDone && m_filterPane.ClientSize.Width > 0 && m_filterPane.ClientSize.Height > 0)
-		{
-			if (m_filterSplitter.Dock == DockStyle.Right)
-			{
-				m_markedLinesDisplay.Width = m_filterPane.ClientSize.Width / 2;
-			}
-			else
-			{
-				m_markedLinesDisplay.Height = m_filterPane.ClientSize.Height / 2;
-			}
-			m_initialMarkedSplitDone = true;
-		}
+		UpdateMarkedLinesDisplaySize();
 	}
 
 	protected override void OnDragEnter(DragEventArgs e)

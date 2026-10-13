@@ -81,6 +81,8 @@ internal static class Settings
 
 	public const int DefaultSplitterPositionPercent = 75;
 
+	public const int DefaultMarkedLinesSplitterPercent = 50;
+
 	public const DockStyle DefaultFilterListLocation = DockStyle.Bottom;
 
 	public const string DefaultDefaultEncodingName = "System Default";
@@ -171,6 +173,24 @@ internal static class Settings
 	}
 
 	public static int SplitterPositionPercent { get; set; }
+
+	private static int markedLinesSplitterPercent;
+
+	public static int MarkedLinesSplitterPercent
+	{
+		get
+		{
+			if (markedLinesSplitterPercent < 5 || markedLinesSplitterPercent > 95)
+			{
+				return DefaultMarkedLinesSplitterPercent;
+			}
+			return markedLinesSplitterPercent;
+		}
+		set
+		{
+			markedLinesSplitterPercent = Math.Max(5, Math.Min(95, value));
+		}
+	}
 
 	public static DockStyle FilterListLocation { get; set; }
 
@@ -295,6 +315,7 @@ internal static class Settings
 	{
 		WindowPositionState = FormWindowState.Normal;
 		SplitterPositionPercent = 75;
+		MarkedLinesSplitterPercent = 50;
 		FilterListLocation = DockStyle.Bottom;
 		LastFileDirectory = "";
 		LastFilterDirectory = "";
