@@ -147,8 +147,12 @@ internal sealed class FilterDialog : FilterFindDialogBase
 			m_backColorCombo.Initialized = false;
 			m_foreColorCombo.SelectedColor = f.ForegroundColor;
 			m_backColorCombo.SelectedColor = f.BackgroundColor;
-			m_textCombo.ForeColor = f.ForegroundColor;
-			m_textCombo.BackColor = f.BackgroundColor;
+			m_textCombo.ForeColor = (f.ForegroundColor != Color.Empty && f.ForegroundColor != Color.Transparent)
+				? f.ForegroundColor
+				: SystemColors.WindowText;
+			m_textCombo.BackColor = (f.BackgroundColor != Color.Empty && f.BackgroundColor != Color.Transparent)
+				? f.BackgroundColor
+				: SystemColors.Window;
 			m_descriptionBox.Text = f.Description;
 			if (f is MatchesTextFilter)
 			{
@@ -294,12 +298,16 @@ internal sealed class FilterDialog : FilterFindDialogBase
 
 	private void ForegroundColor_SelectedIndexChanged(object sender, EventArgs e)
 	{
-		m_textCombo.ForeColor = m_foreColorCombo.SelectedColor;
+		m_textCombo.ForeColor = (m_foreColorCombo.SelectedColor != Color.Empty && m_foreColorCombo.SelectedColor != Color.Transparent)
+			? m_foreColorCombo.SelectedColor
+			: SystemColors.WindowText;
 	}
 
 	private void BackgroundColor_SelectedIndexChanged(object sender, EventArgs e)
 	{
-		m_textCombo.BackColor = m_backColorCombo.SelectedColor;
+		m_textCombo.BackColor = (m_backColorCombo.SelectedColor != Color.Empty && m_backColorCombo.SelectedColor != Color.Transparent)
+			? m_backColorCombo.SelectedColor
+			: SystemColors.Window;
 	}
 
 	private void Excluding_CheckedChanged(object sender, EventArgs e)

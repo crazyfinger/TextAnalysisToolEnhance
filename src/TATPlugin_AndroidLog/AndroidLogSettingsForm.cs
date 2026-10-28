@@ -48,11 +48,6 @@ internal sealed class AndroidLogSettingsForm : Form
 
 	private Label m_lblPidPreview;
 
-	// Random options
-	private CheckBox m_chkConsistent;
-
-	private Panel m_pnlPalette;
-
 	private bool m_updatingUi;
 
 	public AndroidLogSettingsForm(AndroidLogSettings settings)
@@ -66,9 +61,9 @@ internal sealed class AndroidLogSettingsForm : Form
 		MaximizeBox = false;
 		MinimizeBox = false;
 		ShowInTaskbar = false;
-		ClientSize = new Size(540, 560);
+		ClientSize = new Size(700, 660);
 		Font = new Font("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point, 0);
-		AutoScaleMode = AutoScaleMode.Dpi;
+		AutoScaleMode = AutoScaleMode.None;
 
 		BuildUi();
 		UpdateUiFromSettings();
@@ -76,43 +71,49 @@ internal sealed class AndroidLogSettingsForm : Form
 
 	private void BuildUi()
 	{
-		TableLayoutPanel root = new TableLayoutPanel
+		Panel pnlBottom = BuildBottomPanel();
+
+		Panel pnlContent = new Panel
 		{
 			Dock = DockStyle.Fill,
-			RowCount = 4,
-			ColumnCount = 1,
-			Padding = new Padding(12),
+			AutoScroll = false,
+			Padding = new Padding(16, 12, 16, 12),
 			Margin = Padding.Empty
 		};
-		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-		root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+		TableLayoutPanel contentLayout = new TableLayoutPanel
+		{
+			Dock = DockStyle.Top,
+			AutoSize = true,
+			RowCount = 2,
+			ColumnCount = 1,
+			Margin = Padding.Empty,
+			Padding = Padding.Empty
+		};
+		contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+		contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+		contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
 		// 1. Tag GroupBox
 		GroupBox grpTag = BuildTagGroupBox();
-		root.Controls.Add(grpTag, 0, 0);
+		contentLayout.Controls.Add(grpTag, 0, 0);
 
 		// 2. PID GroupBox
 		GroupBox grpPid = BuildPidGroupBox();
-		root.Controls.Add(grpPid, 0, 1);
+		contentLayout.Controls.Add(grpPid, 0, 1);
 
-		// 3. Random Options GroupBox
-		GroupBox grpRandom = BuildRandomOptionsGroupBox();
-		root.Controls.Add(grpRandom, 0, 2);
+		pnlContent.Controls.Add(contentLayout);
 
-		// 4. Bottom Buttons Panel
-		Panel pnlBottom = BuildBottomPanel();
-		root.Controls.Add(pnlBottom, 0, 3);
-
-		Controls.Add(root);
+		Controls.Add(pnlContent);
+		Controls.Add(pnlBottom);
+		pnlBottom.SendToBack();
 	}
 
 	private GroupBox BuildTagGroupBox()
 	{
 		GroupBox grp = new GroupBox
 		{
-			Text = "Tag Filter Color (Tag 过滤器颜色)",
+			Text = "Tag Filter Color",
 			Dock = DockStyle.Top,
 			AutoSize = true,
 			Padding = new Padding(10),
@@ -126,6 +127,7 @@ internal sealed class AndroidLogSettingsForm : Form
 			ColumnCount = 1,
 			RowCount = 5
 		};
+		panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
 		m_rbTagDefault = new RadioButton { Text = "&Default (No color / System text)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
 		m_rbTagRandom = new RadioButton { Text = "&Random Color (Auto-distribute distinguishable colors)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
@@ -135,28 +137,43 @@ internal sealed class AndroidLogSettingsForm : Form
 		m_rbTagRandom.CheckedChanged += (s, e) => { if (!m_updatingUi && m_rbTagRandom.Checked) { m_settings.TagColorMode = FilterColorMode.Random; UpdateUiFromSettings(); } };
 		m_rbTagSpecified.CheckedChanged += (s, e) => { if (!m_updatingUi && m_rbTagSpecified.Checked) { m_settings.TagColorMode = FilterColorMode.Specified; UpdateUiFromSettings(); } };
 
-		FlowLayoutPanel pnlColors = new FlowLayoutPanel
+		TableLayoutPanel pnlColors = new TableLayoutPanel
 		{
 			AutoSize = true,
-			WrapContents = false,
-			Margin = new Padding(24, 2, 3, 4)
+			ColumnCount = 4,
+			RowCount = 2,
+			Margin = new Padding(22, 2, 3, 6),
+			Padding = Padding.Empty
 		};
+		pnlColors.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+		pnlColors.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-		Label lblFore = new Label { Text = "Text:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 5, 4, 0) };
-		m_pnlTagForeColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Margin = new Padding(0, 2, 4, 0) };
+		Label lblFore = new Label { Text = "Text color:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 4, 0) };
+		m_pnlTagForeColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_pnlTagForeColor.Click += (s, e) => ChooseTagForeColor();
-		m_btnTagForeColor = new Button { Text = "Choose...", AutoSize = true, Margin = new Padding(0, 1, 16, 0) };
+		m_btnTagForeColor = new Button { Text = "Choose...", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_btnTagForeColor.Click += (s, e) => ChooseTagForeColor();
 
-		Label lblBack = new Label { Text = "Background:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 5, 4, 0) };
-		m_pnlTagBackColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Margin = new Padding(0, 2, 4, 0) };
+		Label lblBack = new Label { Text = "Background:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 4, 0) };
+		m_pnlTagBackColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_pnlTagBackColor.Click += (s, e) => ChooseTagBackColor();
-		m_btnTagBackColor = new Button { Text = "Choose...", AutoSize = true, Margin = new Padding(0, 1, 4, 0) };
+		m_btnTagBackColor = new Button { Text = "Choose...", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_btnTagBackColor.Click += (s, e) => ChooseTagBackColor();
-		m_btnTagClearBack = new Button { Text = "Clear", AutoSize = true, Margin = new Padding(0, 1, 0, 0) };
+		m_btnTagClearBack = new Button { Text = "Clear", AutoSize = true, Anchor = AnchorStyles.Left, Margin = Padding.Empty };
 		m_btnTagClearBack.Click += (s, e) => { m_settings.TagBackColor = Color.Empty; UpdateUiFromSettings(); };
 
-		pnlColors.Controls.AddRange(new Control[] { lblFore, m_pnlTagForeColor, m_btnTagForeColor, lblBack, m_pnlTagBackColor, m_btnTagBackColor, m_btnTagClearBack });
+		pnlColors.Controls.Add(lblFore, 0, 0);
+		pnlColors.Controls.Add(m_pnlTagForeColor, 1, 0);
+		pnlColors.Controls.Add(m_btnTagForeColor, 2, 0);
+
+		pnlColors.Controls.Add(lblBack, 0, 1);
+		pnlColors.Controls.Add(m_pnlTagBackColor, 1, 1);
+		pnlColors.Controls.Add(m_btnTagBackColor, 2, 1);
+		pnlColors.Controls.Add(m_btnTagClearBack, 3, 1);
 
 		m_lblTagPreview = new Label
 		{
@@ -182,7 +199,7 @@ internal sealed class AndroidLogSettingsForm : Form
 	{
 		GroupBox grp = new GroupBox
 		{
-			Text = "PID Filter Color (PID 过滤器颜色)",
+			Text = "PID Filter Color",
 			Dock = DockStyle.Top,
 			AutoSize = true,
 			Padding = new Padding(10),
@@ -196,6 +213,7 @@ internal sealed class AndroidLogSettingsForm : Form
 			ColumnCount = 1,
 			RowCount = 5
 		};
+		panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
 		m_rbPidDefault = new RadioButton { Text = "D&efault (No color / System text)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
 		m_rbPidRandom = new RadioButton { Text = "R&andom Color (Auto-distribute distinguishable colors)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
@@ -205,28 +223,43 @@ internal sealed class AndroidLogSettingsForm : Form
 		m_rbPidRandom.CheckedChanged += (s, e) => { if (!m_updatingUi && m_rbPidRandom.Checked) { m_settings.PidColorMode = FilterColorMode.Random; UpdateUiFromSettings(); } };
 		m_rbPidSpecified.CheckedChanged += (s, e) => { if (!m_updatingUi && m_rbPidSpecified.Checked) { m_settings.PidColorMode = FilterColorMode.Specified; UpdateUiFromSettings(); } };
 
-		FlowLayoutPanel pnlColors = new FlowLayoutPanel
+		TableLayoutPanel pnlColors = new TableLayoutPanel
 		{
 			AutoSize = true,
-			WrapContents = false,
-			Margin = new Padding(24, 2, 3, 4)
+			ColumnCount = 4,
+			RowCount = 2,
+			Margin = new Padding(22, 2, 3, 6),
+			Padding = Padding.Empty
 		};
+		pnlColors.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+		pnlColors.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+		pnlColors.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-		Label lblFore = new Label { Text = "Text:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 5, 4, 0) };
-		m_pnlPidForeColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Margin = new Padding(0, 2, 4, 0) };
+		Label lblFore = new Label { Text = "Text color:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 4, 0) };
+		m_pnlPidForeColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_pnlPidForeColor.Click += (s, e) => ChoosePidForeColor();
-		m_btnPidForeColor = new Button { Text = "Choose...", AutoSize = true, Margin = new Padding(0, 1, 16, 0) };
+		m_btnPidForeColor = new Button { Text = "Choose...", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_btnPidForeColor.Click += (s, e) => ChoosePidForeColor();
 
-		Label lblBack = new Label { Text = "Background:", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 5, 4, 0) };
-		m_pnlPidBackColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Margin = new Padding(0, 2, 4, 0) };
+		Label lblBack = new Label { Text = "Background:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 4, 0) };
+		m_pnlPidBackColor = new Panel { Size = new Size(32, 22), BorderStyle = BorderStyle.FixedSingle, Cursor = Cursors.Hand, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_pnlPidBackColor.Click += (s, e) => ChoosePidBackColor();
-		m_btnPidBackColor = new Button { Text = "Choose...", AutoSize = true, Margin = new Padding(0, 1, 4, 0) };
+		m_btnPidBackColor = new Button { Text = "Choose...", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 6, 0) };
 		m_btnPidBackColor.Click += (s, e) => ChoosePidBackColor();
-		m_btnPidClearBack = new Button { Text = "Clear", AutoSize = true, Margin = new Padding(0, 1, 0, 0) };
+		m_btnPidClearBack = new Button { Text = "Clear", AutoSize = true, Anchor = AnchorStyles.Left, Margin = Padding.Empty };
 		m_btnPidClearBack.Click += (s, e) => { m_settings.PidBackColor = Color.Empty; UpdateUiFromSettings(); };
 
-		pnlColors.Controls.AddRange(new Control[] { lblFore, m_pnlPidForeColor, m_btnPidForeColor, lblBack, m_pnlPidBackColor, m_btnPidBackColor, m_btnPidClearBack });
+		pnlColors.Controls.Add(lblFore, 0, 0);
+		pnlColors.Controls.Add(m_pnlPidForeColor, 1, 0);
+		pnlColors.Controls.Add(m_btnPidForeColor, 2, 0);
+
+		pnlColors.Controls.Add(lblBack, 0, 1);
+		pnlColors.Controls.Add(m_pnlPidBackColor, 1, 1);
+		pnlColors.Controls.Add(m_btnPidBackColor, 2, 1);
+		pnlColors.Controls.Add(m_btnPidClearBack, 3, 1);
 
 		m_lblPidPreview = new Label
 		{
@@ -248,88 +281,22 @@ internal sealed class AndroidLogSettingsForm : Form
 		return grp;
 	}
 
-	private GroupBox BuildRandomOptionsGroupBox()
-	{
-		GroupBox grp = new GroupBox
-		{
-			Text = "Random Color Palette & Options (随机调色板与策略)",
-			Dock = DockStyle.Top,
-			AutoSize = true,
-			Padding = new Padding(10),
-			Margin = new Padding(0, 0, 0, 10)
-		};
-
-		TableLayoutPanel panel = new TableLayoutPanel
-		{
-			Dock = DockStyle.Top,
-			AutoSize = true,
-			ColumnCount = 1,
-			RowCount = 2
-		};
-
-		m_chkConsistent = new CheckBox
-		{
-			Text = "&Consistent color for same Tag / PID (同一 Tag 或 PID 保持固定颜色)",
-			AutoSize = true,
-			Margin = new Padding(3, 2, 3, 6)
-		};
-		m_chkConsistent.CheckedChanged += (s, e) =>
-		{
-			if (!m_updatingUi)
-			{
-				m_settings.ConsistentRandomColor = m_chkConsistent.Checked;
-			}
-		};
-
-		m_pnlPalette = new Panel
-		{
-			Dock = DockStyle.Top,
-			Height = 22,
-			Margin = new Padding(3, 0, 3, 2)
-		};
-		m_pnlPalette.Paint += (s, e) =>
-		{
-			Graphics g = e.Graphics;
-			int x = 0;
-			int size = 18;
-			int gap = 3;
-			foreach (Color c in AndroidLogSettings.HighContrastPalette)
-			{
-				using (Brush b = new SolidBrush(c))
-				{
-					g.FillRectangle(b, x, 2, size, size);
-				}
-				using (Pen p = new Pen(Color.FromArgb(120, 120, 120)))
-				{
-					g.DrawRectangle(p, x, 2, size - 1, size - 1);
-				}
-				x += size + gap;
-			}
-		};
-
-		panel.Controls.Add(m_chkConsistent, 0, 0);
-		panel.Controls.Add(m_pnlPalette, 0, 1);
-
-		grp.Controls.Add(panel);
-		return grp;
-	}
-
 	private Panel BuildBottomPanel()
 	{
-		Panel pnl = new Panel
+		Panel pnlBottom = new Panel
 		{
 			Dock = DockStyle.Bottom,
-			Height = 40,
+			Height = 64,
+			BackColor = SystemColors.Control,
+			Padding = new Padding(20, 12, 20, 14),
 			Margin = Padding.Empty
 		};
 
 		Button btnReset = new Button
 		{
-			Text = "&Reset to Defaults",
-			AutoSize = true,
-			Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
-			Location = new Point(0, 8),
-			Height = 28
+			Text = "&Reset",
+			Size = new Size(120, 36),
+			Dock = DockStyle.Left
 		};
 		btnReset.Click += (s, e) =>
 		{
@@ -337,23 +304,22 @@ internal sealed class AndroidLogSettingsForm : Form
 			UpdateUiFromSettings();
 		};
 
-		Button btnCancel = new Button
+		FlowLayoutPanel rightFlow = new FlowLayoutPanel
 		{
-			Text = "Cancel",
-			DialogResult = DialogResult.Cancel,
-			Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
-			Location = new Point(430, 8),
-			Size = new Size(80, 28)
+			Dock = DockStyle.Right,
+			AutoSize = true,
+			FlowDirection = FlowDirection.LeftToRight,
+			WrapContents = false,
+			Margin = Padding.Empty,
+			Padding = Padding.Empty
 		};
-		btnCancel.Click += (s, e) => Close();
 
 		Button btnOK = new Button
 		{
 			Text = "OK",
 			DialogResult = DialogResult.OK,
-			Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
-			Location = new Point(342, 8),
-			Size = new Size(80, 28)
+			Size = new Size(120, 36),
+			Margin = new Padding(0, 0, 10, 0)
 		};
 		btnOK.Click += (s, e) =>
 		{
@@ -362,11 +328,24 @@ internal sealed class AndroidLogSettingsForm : Form
 			Close();
 		};
 
+		Button btnCancel = new Button
+		{
+			Text = "Cancel",
+			DialogResult = DialogResult.Cancel,
+			Size = new Size(120, 36),
+			Margin = Padding.Empty
+		};
+		btnCancel.Click += (s, e) => Close();
+
+		rightFlow.Controls.Add(btnOK);
+		rightFlow.Controls.Add(btnCancel);
+
 		AcceptButton = btnOK;
 		CancelButton = btnCancel;
 
-		pnl.Controls.AddRange(new Control[] { btnReset, btnOK, btnCancel });
-		return pnl;
+		pnlBottom.Controls.Add(btnReset);
+		pnlBottom.Controls.Add(rightFlow);
+		return pnlBottom;
 	}
 
 	private void UpdateUiFromSettings()
@@ -405,8 +384,6 @@ internal sealed class AndroidLogSettingsForm : Form
 			m_pnlPidBackColor.BackColor = (m_settings.PidBackColor == Color.Empty) ? SystemColors.Window : m_settings.PidBackColor;
 
 			UpdatePidPreview();
-
-			m_chkConsistent.Checked = m_settings.ConsistentRandomColor;
 		}
 		finally
 		{

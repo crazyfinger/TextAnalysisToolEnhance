@@ -69,7 +69,7 @@ public sealed class AndroidLogPlugin : ITextAnalysisToolPlugin
 		if (info.Pid > 0)
 		{
 			Color fore = m_settings.GetColorForPid(info.Pid);
-			Color back = m_settings.PidBackColor;
+			Color back = (m_settings.PidColorMode == FilterColorMode.Specified) ? m_settings.PidBackColor : Color.Empty;
 			result.Add(new PluginContextMenuItem(
 				"Filter by PID " + info.Pid,
 				pidPattern,
@@ -82,7 +82,7 @@ public sealed class AndroidLogPlugin : ITextAnalysisToolPlugin
 		if (!string.IsNullOrEmpty(info.Tag))
 		{
 			Color fore = m_settings.GetColorForTag(info.Tag);
-			Color back = m_settings.TagBackColor;
+			Color back = (m_settings.TagColorMode == FilterColorMode.Specified) ? m_settings.TagBackColor : Color.Empty;
 			result.Add(new PluginContextMenuItem(
 				"Filter by tag " + info.Tag,
 				tagPattern,
@@ -96,8 +96,8 @@ public sealed class AndroidLogPlugin : ITextAnalysisToolPlugin
 		if (info.Pid > 0)
 		{
 			subItems.Add(new PluginContextMenuItem("Filter by PID " + info.Pid + " (Choose Color...)", pidPattern, caseSensitive: true, promptForColor: true, description: "PID " + info.Pid));
-			subItems.Add(new PluginContextMenuItem("Filter by PID " + info.Pid + " (Random Color)", pidPattern, caseSensitive: true, foreColor: m_settings.GetRandomColorForPid(info.Pid, forceNewRandom: true), description: "PID " + info.Pid));
-			subItems.Add(new PluginContextMenuItem("Filter by PID " + info.Pid + " (Default Black)", pidPattern, caseSensitive: true, foreColor: Color.Empty, description: "PID " + info.Pid));
+			subItems.Add(new PluginContextMenuItem("Filter by PID " + info.Pid + " (Random Color)", pidPattern, caseSensitive: true, foreColor: m_settings.GetRandomColorForPid(info.Pid, forceNewRandom: true), backColor: Color.Empty, description: "PID " + info.Pid));
+			subItems.Add(new PluginContextMenuItem("Filter by PID " + info.Pid + " (Default Black)", pidPattern, caseSensitive: true, foreColor: Color.Empty, backColor: Color.Empty, description: "PID " + info.Pid));
 		}
 
 		if (info.Pid > 0 && !string.IsNullOrEmpty(info.Tag))
@@ -108,8 +108,8 @@ public sealed class AndroidLogPlugin : ITextAnalysisToolPlugin
 		if (!string.IsNullOrEmpty(info.Tag))
 		{
 			subItems.Add(new PluginContextMenuItem("Filter by tag " + info.Tag + " (Choose Color...)", tagPattern, caseSensitive: true, promptForColor: true, description: "Tag " + info.Tag));
-			subItems.Add(new PluginContextMenuItem("Filter by tag " + info.Tag + " (Random Color)", tagPattern, caseSensitive: true, foreColor: m_settings.GetRandomColorForTag(info.Tag, forceNewRandom: true), description: "Tag " + info.Tag));
-			subItems.Add(new PluginContextMenuItem("Filter by tag " + info.Tag + " (Default Black)", tagPattern, caseSensitive: true, foreColor: Color.Empty, description: "Tag " + info.Tag));
+			subItems.Add(new PluginContextMenuItem("Filter by tag " + info.Tag + " (Random Color)", tagPattern, caseSensitive: true, foreColor: m_settings.GetRandomColorForTag(info.Tag, forceNewRandom: true), backColor: Color.Empty, description: "Tag " + info.Tag));
+			subItems.Add(new PluginContextMenuItem("Filter by tag " + info.Tag + " (Default Black)", tagPattern, caseSensitive: true, foreColor: Color.Empty, backColor: Color.Empty, description: "Tag " + info.Tag));
 		}
 
 		subItems.Add(PluginContextMenuItem.Separator());
