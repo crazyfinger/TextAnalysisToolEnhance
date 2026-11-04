@@ -194,8 +194,8 @@ internal sealed class MainWindow : Form
 		m_menuFileReload = new FullyEnabledMenuItem("&Reload", null, FileReload_Click, Keys.F5);
 		m_menuFileSaveCurrentLines = new FullyEnabledMenuItem("&Save Current Lines...", null, FileSaveCurrentLines_Click, Keys.S | Keys.Control);
 		FullyEnabledMenuItem fullyEnabledMenuItem2 = new FullyEnabledMenuItem("&Load Filters...", null, FileLoadFilters_Click, Keys.L | Keys.Control);
-		m_menuFileSaveFilters = new FullyEnabledMenuItem("Sa&ve Filters", null, FileSaveFilters_Click);
-		FullyEnabledMenuItem fullyEnabledMenuItem3 = new FullyEnabledMenuItem("S&ave Filters As...", null, FileSaveFiltersAs_Click);
+		m_menuFileSaveFilters = new FullyEnabledMenuItem("Sa&ve Filters", null, FileSaveFilters_Click, Keys.S | Keys.Control | Keys.Alt);
+		FullyEnabledMenuItem fullyEnabledMenuItem3 = new FullyEnabledMenuItem("S&ave Filters As...", null, FileSaveFiltersAs_Click, Keys.S | Keys.Control | Keys.Shift);
 		FullyEnabledMenuItem fullyEnabledMenuItem4 = new FullyEnabledMenuItem("A&ppend to Existing Filters...", null, FileAppendFilters_Click);
 		m_menuFileRecentFiles = new FullyEnabledMenuItem("Recent &Files");
 		m_menuFileRecentFilters = new FullyEnabledMenuItem("Recent F&ilter Files");
@@ -238,6 +238,7 @@ internal sealed class MainWindow : Form
 		m_menuEditFocusRefine = new FullyEnabledMenuItem("Focus Re&fine Box", null, EditFocusRefine_Click, Keys.E | Keys.Control);
 		m_menuEditClearRefine = new FullyEnabledMenuItem("Clea&r Refine Filter", null, EditClearRefine_Click, Keys.K | Keys.Control);
 		m_menuEditPreferences = new FullyEnabledMenuItem("Pr&eferences...", null, EditPreferences_Click);
+		m_menuEditPreferences.ShortcutKeyDisplayString = "Ctrl+,";
 		m_menuEdit = new FullyEnabledMenuItem("&Edit");
 		m_menuEdit.DropDownItems.AddRange(new ToolStripItem[20]
 		{
@@ -766,7 +767,14 @@ internal sealed class MainWindow : Form
 
 	private void FileSaveFilters_Click(object sender, EventArgs e)
 	{
-		FileSaveFilters(m_textAnalysisTool.FilterFileName);
+		if (string.IsNullOrEmpty(m_textAnalysisTool.FilterFileName))
+		{
+			FileSaveFiltersAs();
+		}
+		else
+		{
+			FileSaveFilters(m_textAnalysisTool.FilterFileName);
+		}
 	}
 
 	private void FileSaveFiltersAs_Click(object sender, EventArgs e)
@@ -1506,6 +1514,16 @@ internal sealed class MainWindow : Form
 	{
 		base.OnSizeChanged(e);
 		OnBoundsChanged();
+	}
+
+	protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+	{
+		if (keyData == (Keys.Control | Keys.Oemcomma))
+		{
+			EditPreferences_Click(m_menuEditPreferences, EventArgs.Empty);
+			return true;
+		}
+		return base.ProcessCmdKey(ref msg, keyData);
 	}
 
 	private void OnBoundsChanged()
