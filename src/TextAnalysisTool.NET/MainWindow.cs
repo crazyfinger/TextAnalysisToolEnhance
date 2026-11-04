@@ -803,8 +803,24 @@ internal sealed class MainWindow : Form
 		Close();
 	}
 
+	private TextBoxBase GetFocusedTextBoxBase()
+	{
+		Control active = ActiveControl;
+		while (active is ContainerControl container && container.ActiveControl != null)
+		{
+			active = container.ActiveControl;
+		}
+		return active as TextBoxBase;
+	}
+
 	private void EditCopy_Click(object sender, EventArgs e)
 	{
+		if (GetFocusedTextBoxBase() is TextBoxBase tb)
+		{
+			tb.Copy();
+			return;
+		}
+
 		if (m_filterCollectionDisplay.Focused && m_filterCollectionDisplay.FiltersSelected)
 		{
 			m_filterCollectionDisplay.CopySelectedFiltersToClipboard();
@@ -817,6 +833,12 @@ internal sealed class MainWindow : Form
 
 	private void EditPaste_Click(object sender, EventArgs e)
 	{
+		if (GetFocusedTextBoxBase() is TextBoxBase tb && !tb.ReadOnly)
+		{
+			tb.Paste();
+			return;
+		}
+
 		if (FilterCollectionDisplay.ClipboardContainsFilters)
 		{
 			m_filterCollectionDisplay.PasteFiltersFromClipboard();
@@ -829,6 +851,12 @@ internal sealed class MainWindow : Form
 
 	private void EditSelectAll_Click(object sender, EventArgs e)
 	{
+		if (GetFocusedTextBoxBase() is TextBoxBase tb)
+		{
+			tb.SelectAll();
+			return;
+		}
+
 		m_lineCollectionDisplay.ListBox.SelectAll();
 	}
 
