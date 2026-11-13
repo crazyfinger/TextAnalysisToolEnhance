@@ -41,7 +41,15 @@ public sealed class AndroidLogPlugin : ITextAnalysisToolPlugin
 
 	public TextReader GetReaderForFile(string fileName)
 	{
-		return new StreamReader(fileName);
+		try
+		{
+			FileStream stream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+			return new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
+		}
+		catch
+		{
+			return null;
+		}
 	}
 
 	public Form GetSettingsDialog()

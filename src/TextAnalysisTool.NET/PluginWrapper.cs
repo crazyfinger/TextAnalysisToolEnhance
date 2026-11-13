@@ -107,9 +107,14 @@ internal sealed class PluginWrapper : IComparable, ITextAnalysisToolPlugin
 			{
 				throw;
 			}
-			catch (Exception)
+			catch (IOException)
 			{
-				CTextAnalysisTool.ShowMessageBox(string.Format("An error occurred while attempting to use the {0} plug-in (from {1}).  The plug-in has been disabled for this instance of {2}.", Name, AssemblyLocation, "TextAnalysisTool.NET"), MessageBoxIcon.Asterisk);
+				// Transient external file sharing or lock issue; fail gracefully without permanently disabling the plug-in
+				return failedReturn;
+			}
+			catch (Exception ex)
+			{
+				CTextAnalysisTool.ShowMessageBox(string.Format("An error occurred while attempting to use the {0} plug-in (from {1}):\n\n{3}\n\nThe plug-in has been disabled for this instance of {2}.", Name, AssemblyLocation, "TextAnalysisTool.NET", ex.Message), MessageBoxIcon.Asterisk);
 				m_enabled = false;
 				obj = failedReturn;
 			}

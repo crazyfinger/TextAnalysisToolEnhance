@@ -15,5 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TextAnalysisTool.NET.csproj" />
+    <ProjectReference Include="..\..\src\TATPlugin_AndroidLog\TATPlugin_AndroidLog.csproj" />
   </ItemGroup>
 </Project>

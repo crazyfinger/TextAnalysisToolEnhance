@@ -64,4 +64,35 @@ public class UtilityTests
 
 		Assert.IsNull(thrown, $"Shortcuts verification failed: {thrown}");
 	}
+
+	[TestMethod]
+	public void AndroidLogPlugin_GetReaderForFile_HandlesSharedWritingFileSafely()
+	{
+		string tempFile = System.IO.Path.GetTempFileName();
+		try
+		{
+			// Simulate external log capture tool writing to the file with FileShare.ReadWrite
+			using (var writer = new System.IO.FileStream(tempFile, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite, System.IO.FileShare.ReadWrite))
+			using (var sw = new System.IO.StreamWriter(writer))
+			{
+				sw.WriteLine("10-30 14:00:00.123 1000 2000 D TestTag: Log message while streaming");
+				sw.Flush();
+
+				var plugin = new TATPlugin_AndroidLog.AndroidLogPlugin();
+				using (var reader = plugin.GetReaderForFile(tempFile))
+				{
+					Assert.IsNotNull(reader, "GetReaderForFile should successfully open file shared with writing process");
+					string line = reader.ReadLine();
+					Assert.IsTrue(line.Contains("TestTag"), "Reader should read the streaming content");
+				}
+			}
+		}
+		finally
+		{
+			if (System.IO.File.Exists(tempFile))
+			{
+				System.IO.File.Delete(tempFile);
+			}
+		}
+	}
 }
