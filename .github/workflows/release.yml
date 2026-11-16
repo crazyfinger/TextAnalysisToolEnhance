@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]+*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,14 +22,34 @@ jobs:
         with:
           dotnet-version: '9.x'
 
+      - name: Determine Release Tag
+        id: tag_info
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build Release
         run: |
           dotnet build src/TextAnalysisTool.NET.csproj -c Release
           dotnet build src/TATPlugin_AndroidLog/TATPlugin_AndroidLog.csproj -c Release
 
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TextAnalysisToolEnhance-binaries
+          path: |
+            TextAnalysisToolEnhance.exe
+            TATPlugin_AndroidLog.dll
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag_info.outputs.tag }}
+          name: Release ${{ steps.tag_info.outputs.tag }}
           files: |
             TextAnalysisToolEnhance.exe
             TATPlugin_AndroidLog.dll
